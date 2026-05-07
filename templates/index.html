@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股票分析工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --bg2:      #161b22;
+      --bg3:      #21262d;
+      --border:   #30363d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --dim:      #484f58;
+      --blue:     #58a6ff;
+      --green:    #3fb950;
+      --red:      #f85149;
+      --yellow:   #e3b341;
+      --purple:   #d2a8ff;
+      --orange:   #f0883e;
+      --sidebar-w: 220px;
+    }
+
+    body {
+      font-family: "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── top bar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0 1.25rem;
+      height: 50px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      transition: height 0.2s ease;
+    }
+    .topbar.collapsed { height: 36px; }
+
+    .topbar h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--blue);
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: font-size 0.2s;
+    }
+    .topbar.collapsed h1 { font-size: 0.88rem; }
+
+    .topbar .search-wrap {
+      display: flex;
+      gap: 0.5rem;
+      flex: 1;
+      max-width: 560px;
+    }
+    .topbar.collapsed .search-wrap { display: none; }
+
+    .topbar input[type="text"] {
+      flex: 1;
+      padding: 0.45rem 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .topbar input[type="text"]:focus { border-color: var(--blue); }
+    .topbar input[type="text"]::placeholder { color: var(--dim); }
+
+    /* collapsed info row */
+    .topbar-collapsed-info {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .topbar.collapsed .topbar-collapsed-info { display: flex; }
+
+    .topbar-profile-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--blue);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+    .topbar-profile-label.empty { color: var(--dim); font-weight: 400; }
+
+    /* toggle button — pinned right, always visible */
+    .topbar-end {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .topbar-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.78rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 5px;
+      white-space: nowrap;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .topbar-toggle:hover { color: var(--text); border-color: var(--muted); }
+
+    .btn {
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-green  { background: #238636; color: #fff; }
+    .btn-blue   { background: #1f6feb; color: #fff; }
+    .btn-ghost  { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+    .btn-danger { background: #3d1515; color: var(--red); border: 1px solid #6e1a1a; }
+    .btn-sync   { background: #0d2a1a; color: var(--green); border: 1px solid #23863666; }
+    .btn-sm     { padding: 0.28rem 0.65rem; font-size: 0.8rem; }
+
+    /* ── body layout ── */
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.22s ease, min-width 0.22s ease;
+    }
+    .sidebar.collapsed {
+      width: 36px;
+      min-width: 36px;
+    }
+    .sidebar.collapsed .profile-list,
+    .sidebar.collapsed .new-profile-form,
+    .sidebar.collapsed .sidebar-footer,
+    .sidebar.collapsed .sidebar-title { display: none; }
+
+    .sidebar-header {
+      padding: 0.55rem 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      min-height: 36px;
+    }
+    .sidebar-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+    .sidebar-toggle {
+      background: none;
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.15rem 0.25rem;
+      border-radius: 4px;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.12s, background 0.12s;
+    }
+    .sidebar-toggle:hover { color: var(--text); background: var(--bg3); }
+    .profile-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.4rem 0;
+    }
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 0.75rem;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s;
+      position: relative;
+    }
+    .profile-card:hover { background: var(--bg3); }
+    .profile-card.active {
+      border-left-color: var(--blue);
+      background: #1f6feb18;
+    }
+    .profile-card-info { flex: 1; min-width: 0; }
+    .profile-card-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-card.active .profile-card-name { color: var(--blue); }
+    .profile-card-meta {
+      font-size: 0.72rem;
+      color: var(--dim);
+      margin-top: 0.1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-card-btns {
+      display: none;
+      gap: 0.2rem;
+      flex-shrink: 0;
+    }
+    .profile-card:hover .profile-card-btns,
+    .profile-card.active .profile-card-btns { display: flex; }
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 0.15rem 0.25rem;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.12s, background 0.12s;
+    }
+    .icon-btn:hover { color: var(--text); background: var(--bg3); }
+    .icon-btn.danger:hover { color: var(--red); }
+
+    .rename-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 0.2rem 0.4rem;
+      outline: none;
+    }
+
+    .sidebar-footer {
+      padding: 0.6rem;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sidebar-footer button { width: 100%; }
+
+    /* ── new profile form (inline in sidebar) ── */
+    .new-profile-form {
+      padding: 0.5rem 0.75rem;
+      border-top: 1px solid var(--border);
+      display: none;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .new-profile-form.visible { display: flex; }
+    .new-profile-form input {
+      padding: 0.35rem 0.6rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+    }
+    .new-profile-form input:focus { border-color: var(--blue); }
+    .new-profile-form input::placeholder { color: var(--dim); }
+    .new-profile-form .form-btns { display: flex; gap: 0.3rem; }
+    .new-profile-form .form-btns button { flex: 1; font-size: 0.8rem; padding: 0.3rem 0; }
+
+    .file-import-label {
+      display: block;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 5px;
+      padding: 0.3rem 0.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .file-import-label:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ── main content ── */
+    .main {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 1.25rem 1.5rem;
+      gap: 1rem;
+    }
+
+    /* ── profile header (shown when profile active) ── */
+    .profile-header {
+      display: none;
+      flex-direction: column;
+      gap: 0.6rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+    .profile-header.visible { display: flex; }
+    .profile-header.folded .stock-chips,
+    .profile-header.folded .add-stock-wrap { display: none; }
+    .profile-fold-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.78rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 5px;
+      transition: color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+      margin-left: auto;
+    }
+    .profile-fold-btn:hover { color: var(--text); border-color: var(--muted); }
+    .profile-header-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .profile-header-top h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--blue);
+    }
+    .last-sync-badge {
+      font-size: 0.75rem;
+      color: var(--dim);
+      margin-left: auto;
+    }
+    .stock-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .stock-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: #1f6feb18;
+      border: 1px solid #1f6feb44;
+      color: var(--blue);
+      border-radius: 20px;
+      padding: 0.15rem 0.5rem 0.15rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .stock-chip button {
+      background: none;
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      font-size: 0.7rem;
+      line-height: 1;
+      padding: 0;
+      transition: color 0.1s;
+    }
+    .stock-chip button:hover { color: var(--red); }
+    .profile-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .add-stock-wrap {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .add-stock-wrap input {
+      padding: 0.38rem 0.7rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      font-size: 0.85rem;
+      width: 130px;
+      outline: none;
+    }
+    .add-stock-wrap input:focus { border-color: var(--blue); }
+    .add-stock-wrap input::placeholder { color: var(--dim); }
+
+    /* ── spinner / error ── */
+    .spinner {
+      display: none;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      padding: 0.5rem;
+    }
+    .spinner.visible { display: block; }
+    .error-msg {
+      color: var(--red);
+      background: #1c1c1c;
+      border: 1px solid #3d1515;
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    /* ── table ── */
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    thead tr.group-row th {
+      background: var(--bg);
+      color: var(--dim);
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.25rem 0.8rem 0.1rem;
+      border-bottom: none;
+      border-top: 1px solid var(--bg3);
+    }
+    thead th {
+      background: var(--bg2);
+      color: var(--muted);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--bg3); transition: background 0.12s; }
+    tbody tr:hover { background: var(--bg2); }
+    tbody td { padding: 0.65rem 0.75rem; vertical-align: middle; white-space: nowrap; }
+
+    .td-comment {
+      white-space: normal;
+      min-width: 200px;
+      max-width: 280px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    .col-sep { border-left: 1px solid var(--bg3); }
+
+    /* chips & badges */
+    .symbol-badge {
+      display: inline-block;
+      background: #1f6feb22;
+      border: 1px solid #1f6feb55;
+      color: var(--blue);
+      border-radius: 5px;
+      padding: 0.12rem 0.45rem;
+      font-weight: 700;
+      font-size: 0.88rem;
+      letter-spacing: 0.03em;
+    }
+    .price { font-weight: 600; }
+    .pe    { color: var(--purple); }
+    .peg-ok   { color: var(--green); }
+    .peg-high { color: var(--orange); }
+    .peg-na   { color: var(--dim); }
+
+    .rsi-chip {
+      display: inline-block;
+      padding: 0.12rem 0.45rem;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .rsi-hot  { background: #3d1515; color: var(--red); }
+    .rsi-warm { background: #1a2d1a; color: var(--green); }
+    .rsi-cold { background: #1a1a2d; color: #79c0ff; }
+    .rsi-norm { background: var(--bg3); color: var(--muted); }
+
+    .macd-chip {
+      display: inline-block;
+      padding: 0.12rem 0.5rem;
+      border-radius: 5px;
+      font-weight: 600;
+      font-size: 0.78rem;
+    }
+    .macd-bull { background: #0d2a1a; color: var(--green); border: 1px solid #23863644; }
+    .macd-bear { background: #3d1515;  color: var(--red);   border: 1px solid #6e1a1a44; }
+    .macd-na   { background: var(--bg3); color: var(--dim); }
+
+    .rec-badge {
+      display: inline-block;
+      padding: 0.18rem 0.55rem;
+      border-radius: 5px;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .rec-strong-buy { background: #0d2a1a; color: var(--green);  border: 1px solid #238636; }
+    .rec-buy        { background: #0d2a1a; color: #56d364;       border: 1px solid #2ea04366; }
+    .rec-hold       { background: #1c2128; color: var(--yellow); border: 1px solid #9e6a0366; }
+    .rec-under      { background: #2d1f0e; color: var(--orange); border: 1px solid #bd561266; }
+    .rec-sell       { background: #3d1515; color: var(--red);    border: 1px solid #6e1a1a; }
+
+    .upside-pos { color: var(--green); font-size: 0.74rem; }
+    .upside-neg { color: var(--red);   font-size: 0.74rem; }
+    .w52-pos    { color: var(--green); font-weight: 600; }
+    .w52-neg    { color: var(--red);   font-weight: 600; }
+    .rev-pos    { color: var(--green); font-weight: 600; }
+    .rev-neg    { color: var(--red);   font-weight: 600; }
+    .na         { color: var(--dim); }
+    .earn-date  { color: #79c0ff; font-size: 0.8rem; }
+    .buy-hi     { color: var(--green); font-weight: 700; }
+    .buy-mid    { color: var(--yellow); }
+    .buy-lo     { color: var(--red); }
+
+    .empty-state {
+      text-align: center;
+      color: var(--dim);
+      padding: 2.5rem 0;
+      font-size: 0.88rem;
+    }
+
+    /* ── modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      width: 360px;
+      max-width: 90vw;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .modal h3 { font-size: 1rem; color: var(--text); }
+    .modal label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; display: block; }
+    .modal input {
+      width: 100%;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .modal input:focus { border-color: var(--blue); }
+    .modal input::placeholder { color: var(--dim); }
+    .modal-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .modal-btns button { min-width: 80px; }
+  </style>
+</head>
+<body>
+
+<!-- top bar -->
+<div class="topbar" id="topbar">
+  <h1>📈 <span id="topbarTitleText">股票分析工具</span></h1>
+
+  <!-- visible when expanded -->
+  <div class="search-wrap" id="topSearchWrap">
+    <input id="symbolInput" type="text" placeholder="個股查詢：AAPL NVDA TSLA…" autocomplete="off" />
+    <button class="btn btn-green" id="analyzeBtn" onclick="adhocAnalyze()">查詢</button>
+  </div>
+
+  <!-- visible when collapsed -->
+  <div class="topbar-collapsed-info" id="topbarCollapsedInfo">
+    <span class="topbar-profile-label empty" id="topbarProfileLabel">未選擇組合</span>
+    <button class="btn btn-sync btn-sm" onclick="syncProfile()" title="同步行情">⟳ 同步</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()" title="匯出 CSV">⬇ CSV</button>
+  </div>
+
+  <div class="topbar-end">
+    <button class="topbar-toggle" id="topbarToggle" onclick="toggleTopbar()">▲ 收合</button>
+  </div>
+</div>
+
+<div class="app-body">
+
+  <!-- sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">投資組合</span>
+      <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="收合／展開">◀</button>
+    </div>
+    <div class="profile-list" id="profileList"></div>
+
+    <!-- new profile inline form -->
+    <div class="new-profile-form" id="newProfileForm">
+      <input id="newProfileName"   placeholder="組合名稱" maxlength="30" />
+      <input id="newProfileStocks" placeholder="股票代碼（選填，空格分隔）" />
+      <label class="file-import-label" title="支援 .csv / .txt，每行或逗號分隔的股票代碼">
+        📂 從 CSV / TXT 匯入
+        <input type="file" id="newProfileFile" accept=".csv,.txt" style="display:none"
+               onchange="importFileToNewForm(this)" />
+      </label>
+      <div class="form-btns">
+        <button class="btn btn-green" onclick="submitNewProfile()">建立</button>
+        <button class="btn btn-ghost" onclick="cancelNewProfile()">取消</button>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost" onclick="toggleNewProfileForm()">＋ 新增投資組合</button>
+    </div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+
+    <!-- profile header (visible when a profile is active) -->
+    <div class="profile-header" id="profileHeader">
+      <div class="profile-header-top">
+        <h2 id="activeProfileName">—</h2>
+        <span class="last-sync-badge" id="lastSyncBadge"></span>
+        <button class="btn btn-sync" id="syncBtn" onclick="syncProfile()">⟳ 同步行情</button>
+        <button class="btn btn-ghost" id="exportBtn" onclick="exportCSV()" title="匯出目前資料為 CSV">⬇ 匯出 CSV</button>
+        <button class="btn btn-danger" id="deleteProfileBtn" onclick="confirmDeleteProfile()">刪除組合</button>
+        <button class="profile-fold-btn" id="profileFoldBtn" onclick="toggleProfileHeader()" title="收合／展開股票清單">▲</button>
+      </div>
+      <div class="stock-chips" id="activeProfileChips"></div>
+      <div class="add-stock-wrap">
+        <input id="addStockInput" placeholder="加入股票（如 AAPL）" maxlength="10"
+               onkeydown="if(event.key==='Enter') addStockToProfile()" />
+        <button class="btn btn-blue" onclick="addStockToProfile()">加入</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('profileImportFile').click()"
+                title="從 CSV / TXT 檔案批次匯入股票代碼">📂 匯入清單</button>
+        <input type="file" id="profileImportFile" accept=".csv,.txt" style="display:none"
+               onchange="importFileToProfile(this)" />
+      </div>
+    </div>
+
+    <div class="spinner" id="spinner">⏳ 資料載入中，請稍候…</div>
+    <div class="error-msg"  id="errorMsg"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr class="group-row">
+            <th colspan="3"></th>
+            <th colspan="2" style="border-left:1px solid var(--border);">── 估值 ──</th>
+            <th colspan="3" style="border-left:1px solid var(--border);">── 技術 ──</th>
+            <th colspan="3" style="border-left:1px solid var(--border);">── 催化劑 ──</th>
+            <th colspan="2" style="border-left:1px solid var(--border);"></th>
+          </tr>
+          <tr>
+            <th>股票代碼</th>
+            <th>目前市價 <span style="font-weight:400;font-size:0.7em;color:var(--dim);">(USD/TWD)</span></th>
+            <th>目標價 (Avg)</th>
+            <th class="col-sep">前瞻 PE</th>
+            <th>PEG</th>
+            <th class="col-sep">RSI</th>
+            <th>MACD</th>
+            <th>距52W高</th>
+            <th class="col-sep">財報日</th>
+            <th>營收成長 YoY</th>
+            <th>分析師 / 買入%</th>
+            <th class="col-sep">投資建議</th>
+            <th>核心評論</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+          <tr><td colspan="13" class="empty-state">在上方輸入股票代碼查詢，或從左側選擇投資組合</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- confirm delete modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>刪除投資組合</h3>
+    <p style="font-size:0.88rem;color:var(--muted);">確定要刪除「<span id="deleteModalName"></span>」嗎？此操作無法復原。</p>
+    <div class="modal-btns">
+      <button class="btn btn-ghost"  onclick="closeDeleteModal()">取消</button>
+      <button class="btn btn-danger" onclick="deleteProfile()">確定刪除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── state ─────────────────────────────────────────────── */
+let activeProfile  = null;  // name string or null
+let profilesData   = {};    // { name: { stocks, last_sync } }
+let currentResults = [];    // last rendered rows, used for CSV export
+
+/* ─── init ───────────────────────────────────────────────── */
+document.getElementById("symbolInput")
+  .addEventListener("keydown", e => { if (e.key === "Enter") adhocAnalyze(); });
+
+// Profile list: card click → select, rename/delete buttons
+document.getElementById("profileList").addEventListener("click", e => {
+  const btn = e.target.closest(".icon-btn[data-action]");
+  if (btn) {
+    e.stopPropagation();
+    const name = btn.dataset.name;
+    if (btn.dataset.action === "rename") startRename(name);
+    if (btn.dataset.action === "delete") openDeleteModal(name);
+    return;
+  }
+  const card = e.target.closest(".profile-card[data-name]");
+  if (card) selectProfile(card.dataset.name);
+});
+
+// Chip remove buttons
+document.getElementById("activeProfileChips").addEventListener("click", e => {
+  const btn = e.target.closest("[data-action='remove-stock']");
+  if (btn) removeStockFromProfile(btn.dataset.sym);
+});
+
+loadProfiles();
+
+/* ─── profiles fetch ─────────────────────────────────────── */
+async function loadProfiles() {
+  const res  = await fetch("/profiles");
+  profilesData = await res.json();
+  renderSidebar();
+}
+
+function renderSidebar() {
+  const list = document.getElementById("profileList");
+  const names = Object.keys(profilesData);
+  if (!names.length) {
+    list.innerHTML = `<div style="padding:1rem 0.75rem;font-size:0.8rem;color:var(--dim);">尚無投資組合</div>`;
+    return;
+  }
+  list.innerHTML = names.map(name => {
+    const p = profilesData[name];
+    const cnt = p.stocks.length;
+    const sync = p.last_sync ? p.last_sync.slice(5, 16).replace("T", " ") : "未同步";
+    const isActive = name === activeProfile;
+    return `
+      <div class="profile-card ${isActive ? "active" : ""}" data-name="${escHtml(name)}">
+        <div class="profile-card-info">
+          <div class="profile-card-name">${escHtml(name)}</div>
+          <div class="profile-card-meta">${cnt} 檔 · ${sync}</div>
+        </div>
+        <div class="profile-card-btns">
+          <button class="icon-btn" data-action="rename" data-name="${escHtml(name)}" title="重新命名">✎</button>
+          <button class="icon-btn danger" data-action="delete" data-name="${escHtml(name)}" title="刪除">✕</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+/* ─── select profile ─────────────────────────────────────── */
+async function selectProfile(name) {
+  activeProfile = name;
+  renderSidebar();
+
+  // show profile header
+  document.getElementById("profileHeader").classList.add("visible");
+  document.getElementById("activeProfileName").textContent = name;
+  updateTopbarProfileLabel();
+
+  // load cached data or empty
+  const res  = await fetch(`/profiles/${encodeURIComponent(name)}`);
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  renderProfileChips(data.stocks);
+  updateSyncBadge(data.last_sync);
+  if (data.cache && data.cache.length) {
+    renderRows(data.cache);
+  } else {
+    document.getElementById("resultBody").innerHTML =
+      `<tr><td colspan="13" class="empty-state">尚未同步，請按「同步行情」</td></tr>`;
+  }
+}
+
+function renderProfileChips(stocks) {
+  const wrap = document.getElementById("activeProfileChips");
+  wrap.innerHTML = (stocks || []).map(s => `
+    <span class="stock-chip">
+      ${escHtml(s)}
+      <button title="移除" data-action="remove-stock" data-sym="${escHtml(s)}">✕</button>
+    </span>`).join("");
+}
+
+function updateSyncBadge(last_sync) {
+  document.getElementById("lastSyncBadge").textContent =
+    last_sync ? `上次同步：${last_sync}` : "";
+}
+
+/* ─── sync ───────────────────────────────────────────────── */
+async function syncProfile() {
+  if (!activeProfile) return;
+  const btn = document.getElementById("syncBtn");
+  btn.disabled = true;
+  btn.textContent = "同步中…";
+  showSpinner(true);
+  clearError();
+
+  try {
+    const res  = await fetch(`/profiles/${encodeURIComponent(activeProfile)}/sync`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    profilesData[activeProfile].last_sync = data.last_sync;
+    renderSidebar();
+    updateSyncBadge(data.last_sync);
+    renderRows(data.results);
+  } catch {
+    showError("同步失敗，請確認網路連線。");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "⟳ 同步行情";
+    showSpinner(false);
+  }
+}
+
+/* ─── add / remove stock ─────────────────────────────────── */
+async function addStockToProfile() {
+  if (!activeProfile) return;
+  const input = document.getElementById("addStockInput");
+  const sym   = input.value.trim().toUpperCase();
+  if (!sym) return;
+
+  const stocks = profilesData[activeProfile].stocks;
+  if (stocks.includes(sym)) { input.value = ""; return; }
+
+  const newStocks = [...stocks, sym];
+  const res = await fetch(`/profiles/${encodeURIComponent(activeProfile)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stocks: newStocks }),
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+
+  profilesData[activeProfile].stocks = newStocks;
+  renderProfileChips(newStocks);
+  renderSidebar();
+  input.value = "";
+}
+
+async function removeStockFromProfile(sym) {
+  if (!activeProfile) return;
+  const newStocks = profilesData[activeProfile].stocks.filter(s => s !== sym);
+  const res = await fetch(`/profiles/${encodeURIComponent(activeProfile)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stocks: newStocks }),
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  profilesData[activeProfile].stocks = newStocks;
+  renderProfileChips(newStocks);
+  renderSidebar();
+}
+
+/* ─── rename ─────────────────────────────────────────────── */
+function startRename(name) {
+  const card = document.querySelector(`.profile-card[data-name="${CSS.escape(name)}"]`);
+  if (!card) return;
+  const el = card.querySelector(".profile-card-name");
+  const orig = el.textContent;
+  el.innerHTML = `<input class="rename-input" value="${escHtml(orig)}" maxlength="30" />`;
+  const inp = el.querySelector("input");
+  inp.focus();
+  inp.select();
+  let committed = false;
+  function commit() {
+    if (committed) return;
+    committed = true;
+    commitRename(name, inp.value.trim());
+  }
+  inp.addEventListener("keydown", e => {
+    if (e.key === "Enter")  commit();
+    if (e.key === "Escape") { committed = true; renderSidebar(); }
+  });
+  inp.addEventListener("blur", commit);
+}
+
+async function commitRename(oldName, newName) {
+  if (!newName || newName === oldName) { renderSidebar(); return; }
+  const res = await fetch(`/profiles/${encodeURIComponent(oldName)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_name: newName }),
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); renderSidebar(); return; }
+
+  // update local state
+  profilesData[newName] = profilesData[oldName];
+  delete profilesData[oldName];
+  if (activeProfile === oldName) {
+    activeProfile = newName;
+    document.getElementById("activeProfileName").textContent = newName;
+  }
+  renderSidebar();
+}
+
+/* ─── create profile ─────────────────────────────────────── */
+function toggleNewProfileForm() {
+  const form = document.getElementById("newProfileForm");
+  form.classList.toggle("visible");
+  if (form.classList.contains("visible"))
+    document.getElementById("newProfileName").focus();
+}
+function cancelNewProfile() {
+  document.getElementById("newProfileForm").classList.remove("visible");
+  document.getElementById("newProfileName").value = "";
+  document.getElementById("newProfileStocks").value = "";
+}
+async function submitNewProfile() {
+  const name   = document.getElementById("newProfileName").value.trim();
+  const raw    = document.getElementById("newProfileStocks").value;
+  const stocks = raw.replace(/,/g, " ").split(/\s+/).filter(Boolean).map(s => s.toUpperCase());
+  if (!name) { document.getElementById("newProfileName").focus(); return; }
+
+  const res  = await fetch("/profiles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, stocks }),
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+
+  profilesData[name] = { stocks, last_sync: null };
+  cancelNewProfile();
+  renderSidebar();
+  selectProfile(name);
+}
+
+/* ─── delete profile ─────────────────────────────────────── */
+let pendingDeleteName = null;
+function openDeleteModal(name) {
+  pendingDeleteName = name;
+  document.getElementById("deleteModalName").textContent = name;
+  document.getElementById("deleteModal").classList.add("visible");
+}
+function closeDeleteModal() {
+  document.getElementById("deleteModal").classList.remove("visible");
+  pendingDeleteName = null;
+}
+function confirmDeleteProfile() {
+  if (activeProfile) openDeleteModal(activeProfile);
+}
+async function deleteProfile() {
+  const name = pendingDeleteName;
+  closeDeleteModal();
+  if (!name) return;
+  const res  = await fetch(`/profiles/${encodeURIComponent(name)}`, { method: "DELETE" });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  delete profilesData[name];
+  if (activeProfile === name) {
+    activeProfile = null;
+    document.getElementById("profileHeader").classList.remove("visible");
+    document.getElementById("resultBody").innerHTML =
+      `<tr><td colspan="13" class="empty-state">在上方輸入股票代碼查詢，或從左側選擇投資組合</td></tr>`;
+    updateTopbarProfileLabel();
+  }
+  renderSidebar();
+}
+
+/* ─── ad-hoc analyze ─────────────────────────────────────── */
+async function adhocAnalyze() {
+  const symbols = document.getElementById("symbolInput").value.trim();
+  if (!symbols) return;
+  const btn = document.getElementById("analyzeBtn");
+  btn.disabled = true;
+  showSpinner(true);
+  clearError();
+  // deselect profile view when doing ad-hoc lookup
+  activeProfile = null;
+  document.getElementById("profileHeader").classList.remove("visible");
+  updateTopbarProfileLabel();
+  renderSidebar();
+
+  try {
+    const res  = await fetch("/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols }),
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    renderRows(data.results);
+  } catch {
+    showError("網路錯誤，請確認伺服器正在執行。");
+  } finally {
+    btn.disabled = false;
+    showSpinner(false);
+  }
+}
+
+/* ─── render helpers ─────────────────────────────────────── */
+function renderRows(results) {
+  currentResults = results;
+  document.getElementById("resultBody").innerHTML = results.map(r => {
+    if (r.error) return `
+      <tr>
+        <td><span class="symbol-badge">${escHtml(r.symbol || "?")}</span></td>
+        <td colspan="12" style="color:var(--red);font-size:0.83rem;">${escHtml(r.error)}</td>
+      </tr>`;
+    return `<tr>
+      <td>
+        <span class="symbol-badge">${escHtml(r.display_symbol || r.symbol)}</span>${r.is_taiwan ? ' <span title="台灣股市">🇹🇼</span>' : ''}<br/>
+        <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
+      </td>
+      <td class="price">${r.current_price_fmt}</td>
+      <td>${upsideHtml(r.upside_pct, r.target_price_fmt)}</td>
+      <td class="col-sep pe">${r.forward_pe_fmt}</td>
+      <td>${pegHtml(r.peg_fmt, r.peg_ratio)}</td>
+      <td class="col-sep"><span class="rsi-chip ${rsiClass(r.rsi)}">${r.rsi_fmt}</span></td>
+      <td>${macdHtml(r.macd_label, r.macd_bullish)}</td>
+      <td>${w52Html(r.pct_from_52w_high_fmt, r.pct_from_52w_high)}</td>
+      <td class="col-sep">${earnHtml(r.next_earnings_fmt)}</td>
+      <td>${revHtml(r.rev_growth_fmt, r.rev_growth)}</td>
+      <td>${analystHtml(r.analyst_fmt, r.buy_pct)}</td>
+      <td class="col-sep"><span class="rec-badge ${recClass(r.recommendation)}">${r.recommendation}</span></td>
+      <td class="td-comment">${escHtml(r.comment)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function rsiClass(v) {
+  if (v == null)  return "rsi-norm";
+  if (v >= 70)    return "rsi-hot";
+  if (v >= 55)    return "rsi-warm";
+  if (v <= 35)    return "rsi-cold";
+  return "rsi-norm";
+}
+function recClass(rec) {
+  if (rec.includes("強力買入")) return "rec-strong-buy";
+  if (rec.includes("買入"))    return "rec-buy";
+  if (rec.includes("持有"))    return "rec-hold";
+  if (rec.includes("低配"))    return "rec-under";
+  if (rec.includes("賣出"))    return "rec-sell";
+  return "rec-hold";
+}
+function upsideHtml(up, tfmt) {
+  if (tfmt === "N/A") return `<span class="na">N/A</span>`;
+  const cls = up >= 0 ? "upside-pos" : "upside-neg";
+  return `<span style="color:var(--green)">${tfmt}</span><br/><span class="${cls}">(${up >= 0 ? "+" : ""}${up}%)</span>`;
+}
+function macdHtml(label, bull) {
+  if (!label || label === "N/A") return `<span class="macd-chip macd-na">N/A</span>`;
+  return `<span class="macd-chip ${bull ? "macd-bull" : "macd-bear"}">${label}</span>`;
+}
+function w52Html(fmt, val) {
+  if (fmt === "N/A") return `<span class="na">N/A</span>`;
+  return `<span class="${val >= 0 ? "w52-pos" : "w52-neg"}">${fmt}</span>`;
+}
+function revHtml(fmt, val) {
+  if (fmt === "N/A") return `<span class="na">N/A</span>`;
+  return `<span class="${val >= 0 ? "rev-pos" : "rev-neg"}">${fmt}</span>`;
+}
+function pegHtml(fmt, val) {
+  if (fmt === "N/A") return `<span class="na">N/A</span>`;
+  const cls = val <= 1.5 ? "peg-ok" : (val <= 3 ? "pe" : "peg-high");
+  return `<span class="${cls}">${fmt}</span>`;
+}
+function analystHtml(fmt, buyPct) {
+  if (fmt === "N/A") return `<span class="na">N/A</span>`;
+  if (buyPct == null) return fmt;
+  const parts = fmt.split(" / ");
+  const cls   = buyPct >= 70 ? "buy-hi" : (buyPct >= 50 ? "buy-mid" : "buy-lo");
+  return `${parts[0]}<br/><span class="${cls}">${parts[1] || ""}</span>`;
+}
+function earnHtml(fmt) {
+  if (fmt === "N/A") return `<span class="na">N/A</span>`;
+  return `<span class="earn-date">${fmt}</span>`;
+}
+
+/* ─── profile header fold ────────────────────────────────── */
+function toggleProfileHeader() {
+  const header = document.getElementById("profileHeader");
+  const btn    = document.getElementById("profileFoldBtn");
+  const folded = header.classList.toggle("folded");
+  btn.textContent = folded ? "▼" : "▲";
+  btn.title       = folded ? "展開股票清單" : "收合股票清單";
+}
+
+/* ─── topbar toggle ──────────────────────────────────────── */
+function toggleTopbar() {
+  const topbar    = document.getElementById("topbar");
+  const btn       = document.getElementById("topbarToggle");
+  const collapsed = topbar.classList.toggle("collapsed");
+  btn.textContent = collapsed ? "▼ 展開" : "▲ 收合";
+}
+
+function updateTopbarProfileLabel() {
+  const label = document.getElementById("topbarProfileLabel");
+  if (!label) return;
+  if (activeProfile) {
+    label.textContent = activeProfile;
+    label.classList.remove("empty");
+  } else {
+    label.textContent = "未選擇組合";
+    label.classList.add("empty");
+  }
+}
+
+/* ─── sidebar toggle ─────────────────────────────────────── */
+function toggleSidebar() {
+  const sidebar = document.getElementById("sidebar");
+  const btn     = document.getElementById("sidebarToggle");
+  const collapsed = sidebar.classList.toggle("collapsed");
+  btn.textContent = collapsed ? "▶" : "◀";
+  btn.title       = collapsed ? "展開" : "收合";
+}
+
+/* ─── CSV export ─────────────────────────────────────────── */
+function exportCSV() {
+  const rows = currentResults.filter(r => !r.error);
+  if (!rows.length) { showError('尚無資料可匯出，請先同步行情。'); return; }
+
+  const HEADERS = [
+    '股票代碼','公司名稱','目前市價(USD)','目標價(Avg)','漲幅%',
+    '前瞻PE','PEG','RSI','MACD','距52W高%',
+    '財報日','營收成長YoY','分析師數','買入%','投資建議','核心評論'
+  ];
+
+  const escape = v => {
+    const s = String(v ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const lines = [
+    HEADERS.join(','),
+    ...rows.map(r => [
+      r.symbol,
+      r.company_name,
+      r.current_price_fmt,
+      r.target_price_fmt,
+      r.upside_pct != null ? `${r.upside_pct > 0 ? '+' : ''}${r.upside_pct}%` : 'N/A',
+      r.forward_pe_fmt,
+      r.peg_fmt,
+      r.rsi_fmt,
+      r.macd_label,
+      r.pct_from_52w_high_fmt,
+      r.next_earnings_fmt,
+      r.rev_growth_fmt,
+      r.n_analysts ?? 'N/A',
+      r.buy_pct != null ? `${r.buy_pct}%` : 'N/A',
+      r.recommendation,
+      r.comment,
+    ].map(escape).join(','))
+  ];
+
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const name = activeProfile || 'stock_analysis';
+  a.href     = url;
+  a.download = `${name}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ─── file import ────────────────────────────────────────── */
+const HEADER_WORDS = new Set(['ticker','symbol','stock','name','code','stocks',
+                               '股票','代碼','股票代碼','標的']);
+
+function parseSymbolsFromText(text, filename) {
+  const isCSV = filename.toLowerCase().endsWith('.csv');
+  const symbols = [];
+  const seen = new Set();
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // For CSV take only the first column; for TXT split on whitespace/comma/tab
+    const tokens = isCSV
+      ? [line.split(',')[0]]
+      : line.split(/[\s,;\t]+/);
+
+    for (const token of tokens) {
+      const sym = token.trim().replace(/^["']|["']$/g, '').toUpperCase();
+      if (!sym) continue;
+      if (HEADER_WORDS.has(sym.toLowerCase())) continue;
+      // Accept standard ticker format: starts with letter, 1-10 chars, letters/digits/./- only
+      if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) continue;
+      if (!seen.has(sym)) { seen.add(sym); symbols.push(sym); }
+    }
+  }
+  return symbols;
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('檔案讀取失敗'));
+    reader.readAsText(file);
+  });
+}
+
+// Import into the "new profile" form text field
+async function importFileToNewForm(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  input.value = '';           // reset so same file can be re-selected
+  try {
+    const text    = await readFileAsText(file);
+    const symbols = parseSymbolsFromText(text, file.name);
+    if (!symbols.length) { showError('檔案中找不到有效的股票代碼。'); return; }
+    const existing = document.getElementById('newProfileStocks').value.trim();
+    const merged   = [...new Set([
+      ...existing.split(/[\s,]+/).filter(Boolean).map(s => s.toUpperCase()),
+      ...symbols,
+    ])];
+    document.getElementById('newProfileStocks').value = merged.join(' ');
+  } catch (e) { showError(e.message); }
+}
+
+// Import into the active profile (merges with existing stocks, saves to server)
+async function importFileToProfile(input) {
+  if (!activeProfile || !input.files.length) return;
+  const file = input.files[0];
+  input.value = '';
+  try {
+    const text    = await readFileAsText(file);
+    const symbols = parseSymbolsFromText(text, file.name);
+    if (!symbols.length) { showError('檔案中找不到有效的股票代碼。'); return; }
+
+    const existing  = profilesData[activeProfile].stocks;
+    const newStocks = [...new Set([...existing, ...symbols])];
+    if (newStocks.length === existing.length) {
+      showError('檔案中的股票代碼已全部存在於此組合中。'); return;
+    }
+
+    const res  = await fetch(`/profiles/${encodeURIComponent(activeProfile)}`, {
+      method : 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ stocks: newStocks }),
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+
+    profilesData[activeProfile].stocks = newStocks;
+    renderProfileChips(newStocks);
+    renderSidebar();
+    clearError();
+  } catch (e) { showError(e.message); }
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function showSpinner(v) {
+  document.getElementById("spinner").classList.toggle("visible", v);
+}
+function showError(msg) {
+  const el = document.getElementById("errorMsg");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+function clearError() {
+  document.getElementById("errorMsg").style.display = "none";
+}
+</script>
+</body>
+</html>
