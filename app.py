@@ -1,10 +1,37 @@
 import json
 import os
+import re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from stock_data import analyze_stock
 
-app = Flask(__name__)
+_TW_SYM = re.compile(r'^\d{4,6}[A-Za-z]{0,2}(\.TW[O]?)?$', re.IGNORECASE)
+
+def sort_results(results: list) -> list:
+    """Taiwan stocks sorted numerically, US stocks sorted alphabetically.
+       Errored rows are kept at the end in original order."""
+    tw, us, errors = [], [], []
+    for r in results:
+        if r.get("error"):
+            errors.append(r)
+        elif r.get("is_taiwan") or _TW_SYM.match(r.get("display_symbol") or r.get("symbol", "")):
+            tw.append(r)
+        else:
+            us.append(r)
+
+    def tw_key(r):
+        sym = r.get("display_symbol") or r.get("symbol", "")
+        m = re.match(r"(\d+)", sym)
+        return int(m.group(1)) if m else 0
+
+    tw.sort(key=tw_key)
+    us.sort(key=lambda r: (r.get("display_symbol") or r.get("symbol", "")).upper())
+    return tw + us + errors
+
+_here = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__,
+            static_folder=os.path.join(_here, "static"),
+            template_folder=os.path.join(_here, "templates"))
 
 # DATA_DIR can be overridden via env var to point at a persistent volume on cloud
 _data_dir = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
@@ -25,8 +52,22 @@ def save_profiles(profiles: dict) -> None:
 
 # ── pages ────────────────────────────────────────────────────────────────────
 
+def _is_mobile():
+    ua = request.user_agent.string.lower()
+    return any(k in ua for k in ["android", "iphone", "ipad", "mobile", "tablet"])
+
 @app.route("/")
 def index():
+    if _is_mobile():
+        return render_template("mobile.html")
+    return render_template("index.html")
+
+@app.route("/m")
+def mobile():
+    return render_template("mobile.html")
+
+@app.route("/desktop")
+def desktop():
     return render_template("index.html")
 
 
@@ -39,7 +80,7 @@ def analyze():
     symbols = [s.strip() for s in symbols_raw.replace(",", " ").split() if s.strip()]
     if not symbols:
         return jsonify({"error": "請輸入至少一個股票代碼。"})
-    results = [analyze_stock(s) for s in symbols[:10]]
+    results = sort_results([analyze_stock(s) for s in symbols[:10]])
     return jsonify({"results": results})
 
 
@@ -128,7 +169,7 @@ def sync_profile(name):
     stocks = profiles[name].get("stocks", [])
     if not stocks:
         return jsonify({"error": "此投資組合沒有股票，請先加入股票"}), 400
-    results = [analyze_stock(s) for s in stocks]
+    results = sort_results([analyze_stock(s) for s in stocks])
     profiles[name]["last_sync"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     profiles[name]["cache"] = results
     save_profiles(profiles)

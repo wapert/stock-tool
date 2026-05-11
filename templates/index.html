@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>股票分析工具</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#161b22" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="股票分析" />
+  <link rel="apple-touch-icon" href="/static/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -587,6 +596,99 @@
     .modal input::placeholder { color: var(--dim); }
     .modal-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
     .modal-btns button { min-width: 80px; }
+
+    /* ── theme picker ── */
+    .theme-picker {
+      position: relative; display: inline-flex; align-items: center;
+    }
+    .theme-picker-panel {
+      display: none; position: absolute; top: calc(100% + 6px); right: 0;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.5rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      z-index: 200; white-space: nowrap;
+      flex-direction: column; gap: 0.3rem;
+    }
+    .theme-picker-panel.open { display: flex; }
+    .theme-opt {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.45rem 0.75rem; border-radius: 7px;
+      cursor: pointer; font-size: 0.85rem; color: var(--text);
+      transition: background 0.12s;
+    }
+    .theme-opt:hover { background: var(--bg3); }
+    .theme-opt.active { background: var(--bg3); font-weight: 600; }
+    .swatch {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid var(--border); flex-shrink: 0;
+    }
+
+    /* ── white theme ── */
+    html.theme-white {
+      --bg: #ffffff; --bg2: #f6f8fa; --bg3: #eaeef2;
+      --border: #d0d7de; --text: #24292f; --muted: #57606a; --dim: #8c959f;
+    }
+    html.theme-white .rsi-hot  { background: #ffebe9; }
+    html.theme-white .rsi-warm { background: #dafbe1; }
+    html.theme-white .rsi-cold { background: #ddf4ff; }
+    html.theme-white .rsi-norm { background: #eaeef2; }
+    html.theme-white .macd-chip.macd-bull { background: #dafbe1; border-color: #2da44e66; }
+    html.theme-white .macd-chip.macd-bear { background: #ffebe9; border-color: #cf222e66; }
+    html.theme-white .rec-strong-buy { background: #dafbe1; border-color: #2da44e88; }
+    html.theme-white .rec-buy        { background: #dafbe1; border-color: #2da44e55; }
+    html.theme-white .rec-hold       { background: #fff8c5; border-color: #d4a72c88; }
+    html.theme-white .rec-under      { background: #fff1d3; border-color: #d4660088; }
+    html.theme-white .rec-sell       { background: #ffebe9; border-color: #cf222e88; }
+    html.theme-white .symbol-badge   { background: #ddf4ff; border-color: #79c0ff88; }
+    html.theme-white .stock-chip     { background: #ddf4ff; border-color: #79c0ff88; }
+    html.theme-white .profile-card.active { background: #ddf4ff55; }
+    html.theme-white .btn-sync  { background: #dafbe1; border-color: #2da44e88; color: #116329; }
+    html.theme-white .btn-danger{ background: #ffebe9; border-color: #cf222e88; }
+
+    /* ── light-blue theme ── */
+    html.theme-lightblue {
+      --bg: #eaf5ff; --bg2: #d7edf9; --bg3: #c2dff0;
+      --border: #8abcd8; --text: #0a2742; --muted: #2d6a8a; --dim: #5a90b0;
+    }
+    html.theme-lightblue .rsi-hot  { background: #fdd5d1; }
+    html.theme-lightblue .rsi-warm { background: #d0f0da; }
+    html.theme-lightblue .rsi-cold { background: #cce8ff; }
+    html.theme-lightblue .rsi-norm { background: #c2dff0; }
+    html.theme-lightblue .macd-chip.macd-bull { background: #d0f0da; border-color: #2da44e66; }
+    html.theme-lightblue .macd-chip.macd-bear { background: #fdd5d1; border-color: #cf222e66; }
+    html.theme-lightblue .rec-strong-buy { background: #d0f0da; border-color: #2da44e88; }
+    html.theme-lightblue .rec-buy        { background: #d0f0da; border-color: #2da44e55; }
+    html.theme-lightblue .rec-hold       { background: #fdf3c8; border-color: #d4a72c88; }
+    html.theme-lightblue .rec-under      { background: #fde8cc; border-color: #d4660088; }
+    html.theme-lightblue .rec-sell       { background: #fdd5d1; border-color: #cf222e88; }
+    html.theme-lightblue .symbol-badge   { background: #cce8ff; border-color: #5aacde88; }
+    html.theme-lightblue .stock-chip     { background: #cce8ff; border-color: #5aacde88; }
+    html.theme-lightblue .profile-card.active { background: #cce8ff55; }
+    html.theme-lightblue .btn-sync  { background: #d0f0da; border-color: #2da44e88; color: #116329; }
+    html.theme-lightblue .btn-danger{ background: #fdd5d1; border-color: #cf222e88; }
+
+
+    /* ── light-yellow theme ── */
+    html.theme-lightyellow {
+      --bg: #fffbe8; --bg2: #fef9df; --bg3: #fdf7d7;
+      --border: #f3eac1; --text: #1e1400; --muted: #4a3200; --dim: #8a6a10;
+    }
+    html.theme-lightyellow .rsi-hot  { background: #f4b8b1; }
+    html.theme-lightyellow .rsi-warm { background: #b3e4bf; }
+    html.theme-lightyellow .rsi-cold { background: #b3d7f4; }
+    html.theme-lightyellow .rsi-norm { background: #fdf7d7; }
+    html.theme-lightyellow .macd-chip.macd-bull { background: #b3e4bf; border-color: #2da44e66; }
+    html.theme-lightyellow .macd-chip.macd-bear { background: #f4b8b1; border-color: #cf222e66; }
+    html.theme-lightyellow .rec-strong-buy { background: #b3e4bf; border-color: #2da44e88; }
+    html.theme-lightyellow .rec-buy        { background: #b3e4bf; border-color: #2da44e55; }
+    html.theme-lightyellow .rec-hold       { background: #fef9df; border-color: #f3eac188; }
+    html.theme-lightyellow .rec-under      { background: #f3d4a6; border-color: #c07000aa; }
+    html.theme-lightyellow .rec-sell       { background: #f4b8b1; border-color: #cf222e88; }
+    html.theme-lightyellow .symbol-badge   { background: #fef9df; border-color: #f3eac188; }
+    html.theme-lightyellow .stock-chip     { background: #fef9df; border-color: #f3eac188; }
+    html.theme-lightyellow .profile-card.active { background: #fdf7d766; }
+    html.theme-lightyellow .btn-sync  { background: #b3e4bf; border-color: #2da44e88; color: #0a4020; }
+    html.theme-lightyellow .btn-danger{ background: #f4b8b1; border-color: #cf222e88; }
   </style>
 </head>
 <body>
@@ -609,6 +711,23 @@
   </div>
 
   <div class="topbar-end">
+    <div class="theme-picker" id="themePicker">
+      <button class="topbar-toggle" onclick="toggleThemePicker(event)" title="切換主題">🎨 主題</button>
+      <div class="theme-picker-panel" id="themePanel">
+        <div class="theme-opt" data-theme="dark">
+          <span class="swatch" style="background:#0d1117;border-color:#58a6ff;"></span>🌙 深色
+        </div>
+        <div class="theme-opt" data-theme="white">
+          <span class="swatch" style="background:#ffffff;border-color:#d0d7de;"></span>☀️ 白色
+        </div>
+        <div class="theme-opt" data-theme="lightblue">
+          <span class="swatch" style="background:#d7edf9;border-color:#8abcd8;"></span>💙 淺藍
+        </div>
+        <div class="theme-opt" data-theme="lightyellow">
+          <span class="swatch" style="background:#fffbe8;border-color:#f3eac1;"></span>🌼 淺黃
+        </div>
+      </div>
+    </div>
     <button class="topbar-toggle" id="topbarToggle" onclick="toggleTopbar()">▲ 收合</button>
   </div>
 </div>
@@ -1293,6 +1412,37 @@ function showError(msg) {
 }
 function clearError() {
   document.getElementById("errorMsg").style.display = "none";
+}
+
+/* ─── theme ──────────────────────────────────────────────── */
+const THEMES = ["dark","white","lightblue","lightyellow"];
+function applyTheme(t) {
+  document.documentElement.classList.remove(...THEMES.map(x=>`theme-${x}`));
+  if (t !== "dark") document.documentElement.classList.add(`theme-${t}`);
+  localStorage.setItem("theme", t);
+  document.querySelectorAll(".theme-opt").forEach(el => {
+    el.classList.toggle("active", el.dataset.theme === t);
+  });
+}
+function toggleThemePicker(e) {
+  e.stopPropagation();
+  document.getElementById("themePanel").classList.toggle("open");
+}
+document.addEventListener("click", () =>
+  document.getElementById("themePanel").classList.remove("open"));
+document.getElementById("themePanel").addEventListener("click", e => {
+  const opt = e.target.closest(".theme-opt");
+  if (opt) { applyTheme(opt.dataset.theme); document.getElementById("themePanel").classList.remove("open"); }
+  e.stopPropagation();
+});
+applyTheme(localStorage.getItem("theme") || "dark");
+
+// Register service worker for PWA
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/static/sw.js")
+      .catch(err => console.warn("SW registration failed:", err));
+  });
 }
 </script>
 </body>

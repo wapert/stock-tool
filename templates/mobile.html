@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#161b22"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="股票分析"/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <link rel="apple-touch-icon" href="/static/icon-192.png"/>
+  <title>股票分析工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #0d1117; --bg2: #161b22; --bg3: #21262d;
+      --border: #30363d; --text: #e6edf3; --muted: #8b949e; --dim: #484f58;
+      --blue:   #58a6ff; --green: #3fb950; --red: #f85149;
+      --yellow: #e3b341; --purple: #d2a8ff; --orange: #f0883e;
+      --topbar-h: 54px; --bottombar-h: 56px;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* ── topbar ── */
+    .topbar {
+      height: var(--topbar-h); min-height: var(--topbar-h);
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0 1rem;
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; z-index: 10;
+    }
+    .topbar-title {
+      font-size: 1rem; font-weight: 700; color: var(--blue);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .topbar-profile-pill {
+      flex: 1; min-width: 0;
+      display: flex; align-items: center; gap: 0.4rem;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 0.3rem 0.75rem;
+      cursor: pointer; overflow: hidden;
+    }
+    .topbar-profile-pill span {
+      font-size: 0.85rem; font-weight: 600; color: var(--blue);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .topbar-profile-pill .no-profile { color: var(--dim); font-weight: 400; }
+    .icon-btn {
+      background: none; border: none; color: var(--muted);
+      width: 40px; height: 40px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; cursor: pointer; flex-shrink: 0;
+      transition: background 0.12s, color 0.12s;
+    }
+    .icon-btn:active { background: var(--bg3); color: var(--text); }
+
+    /* ── drawer overlay ── */
+    .drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 40; display: none; opacity: 0;
+      transition: opacity 0.22s;
+    }
+    .drawer-overlay.open { display: block; opacity: 1; }
+
+    /* ── drawer ── */
+    .drawer {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 80vw; max-width: 300px;
+      background: var(--bg2); border-right: 1px solid var(--border);
+      z-index: 50; display: flex; flex-direction: column;
+      transform: translateX(-100%); transition: transform 0.22s ease;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-header {
+      height: var(--topbar-h); display: flex; align-items: center;
+      justify-content: space-between; padding: 0 1rem;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .drawer-header h2 { font-size: 0.9rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 0.4rem 0; }
+    .profile-item {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.75rem 1rem; cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s;
+    }
+    .profile-item:active, .profile-item.active { background: #1f6feb18; border-left-color: var(--blue); }
+    .profile-item.active .profile-item-name { color: var(--blue); }
+    .profile-item-info { flex: 1; min-width: 0; }
+    .profile-item-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-item-meta { font-size: 0.72rem; color: var(--dim); margin-top: 0.1rem; }
+    .profile-item-del { color: var(--dim); font-size: 0.9rem; padding: 0.25rem 0.4rem; border-radius: 4px; }
+    .profile-item-del:active { color: var(--red); background: #3d1515; }
+    .drawer-footer {
+      padding: 0.75rem; border-top: 1px solid var(--border); flex-shrink: 0;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+
+    /* ── new profile form in drawer ── */
+    .new-form { display: none; flex-direction: column; gap: 0.4rem; }
+    .new-form.visible { display: flex; }
+    .new-form input, .search-input {
+      width: 100%; padding: 0.55rem 0.8rem;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg3); color: var(--text);
+      font-size: 16px; /* prevent iOS zoom */ outline: none;
+    }
+    .new-form input:focus, .search-input:focus { border-color: var(--blue); }
+    .new-form input::placeholder, .search-input::placeholder { color: var(--dim); }
+    .row { display: flex; gap: 0.4rem; }
+    .row button { flex: 1; }
+
+    /* ── main scroll area ── */
+    .main {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 0.75rem; padding-bottom: calc(var(--bottombar-h) + 0.75rem);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── search bar (shown when no profile active) ── */
+    .search-bar {
+      display: flex; gap: 0.5rem; margin-bottom: 0.75rem;
+    }
+    .search-bar.hidden { display: none; }
+
+    /* ── profile panel (shown when profile active) ── */
+    .profile-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; margin-bottom: 0.75rem;
+      display: none;
+    }
+    .profile-panel.visible { display: block; }
+    .profile-panel-top {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.65rem 0.75rem; flex-wrap: wrap;
+    }
+    .profile-panel-name { font-size: 1rem; font-weight: 700; color: var(--blue); flex: 1; }
+    .sync-time { font-size: 0.7rem; color: var(--dim); width: 100%; padding: 0 0.75rem 0.4rem; }
+
+    /* chips */
+    .chip-wrap {
+      display: flex; flex-wrap: wrap; gap: 0.3rem;
+      padding: 0 0.75rem 0.6rem;
+    }
+    .chip {
+      display: inline-flex; align-items: center; gap: 0.2rem;
+      background: #1f6feb18; border: 1px solid #1f6feb44;
+      color: var(--blue); border-radius: 20px;
+      padding: 0.15rem 0.45rem 0.15rem 0.55rem;
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .chip button {
+      background: none; border: none; color: var(--dim);
+      font-size: 0.7rem; line-height: 1; padding: 0; cursor: pointer;
+    }
+    .chip-add-wrap {
+      padding: 0 0.75rem 0.65rem;
+      display: flex; gap: 0.4rem;
+    }
+    .chip-add-wrap input {
+      flex: 1; padding: 0.45rem 0.7rem;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg3); color: var(--text);
+      font-size: 16px; outline: none;
+    }
+    .chip-add-wrap input:focus { border-color: var(--blue); }
+
+    /* ── buttons ── */
+    .btn {
+      padding: 0.55rem 1rem; border-radius: 8px; border: none;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      white-space: nowrap; display: inline-flex; align-items: center;
+      justify-content: center; gap: 0.3rem; min-height: 40px;
+      transition: opacity 0.15s;
+    }
+    .btn:active { opacity: 0.75; }
+    .btn:disabled { opacity: 0.4; }
+    .btn-green  { background: #238636; color: #fff; }
+    .btn-blue   { background: #1f6feb; color: #fff; }
+    .btn-ghost  { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+    .btn-sync   { background: #0d2a1a; color: var(--green); border: 1px solid #23863666; }
+    .btn-danger { background: #3d1515; color: var(--red); border: 1px solid #6e1a1a44; }
+    .btn-full   { width: 100%; }
+    .btn-sm     { padding: 0.38rem 0.7rem; font-size: 0.8rem; min-height: 34px; }
+
+    /* ── spinner / error ── */
+    .spinner { display: none; text-align: center; color: var(--muted); padding: 2rem; font-size: 0.9rem; }
+    .spinner.visible { display: block; }
+    .error-msg {
+      background: #1c1c1c; border: 1px solid #3d1515;
+      border-radius: 8px; padding: 0.65rem 1rem;
+      color: var(--red); font-size: 0.88rem; margin-bottom: 0.75rem;
+      display: none;
+    }
+    .empty-state { text-align: center; color: var(--dim); padding: 3rem 1rem; font-size: 0.9rem; }
+
+    /* ── stock cards ── */
+    .card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; margin-bottom: 0.65rem; overflow: hidden;
+    }
+    .card-top {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.65rem 0.75rem;
+    }
+    .symbol-badge {
+      background: #1f6feb22; border: 1px solid #1f6feb55;
+      color: var(--blue); border-radius: 6px;
+      padding: 0.2rem 0.5rem; font-weight: 700;
+      font-size: 0.9rem; letter-spacing: 0.03em; white-space: nowrap;
+    }
+    .card-names { flex: 1; min-width: 0; }
+    .card-company { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rec-badge {
+      padding: 0.2rem 0.55rem; border-radius: 6px;
+      font-weight: 700; font-size: 0.78rem; white-space: nowrap;
+    }
+    .rec-strong-buy { background: #0d2a1a; color: var(--green); border: 1px solid #238636; }
+    .rec-buy        { background: #0d2a1a; color: #56d364;      border: 1px solid #2ea04366; }
+    .rec-hold       { background: #1c2128; color: var(--yellow); border: 1px solid #9e6a0366; }
+    .rec-under      { background: #2d1f0e; color: var(--orange); border: 1px solid #bd561266; }
+    .rec-sell       { background: #3d1515; color: var(--red);   border: 1px solid #6e1a1a; }
+
+    /* price row */
+    .card-price {
+      display: flex; align-items: baseline; gap: 0.6rem;
+      padding: 0 0.75rem 0.55rem; flex-wrap: wrap;
+    }
+    .price-now  { font-size: 1.25rem; font-weight: 700; }
+    .price-target { font-size: 0.85rem; color: var(--muted); }
+    .price-up   { color: var(--green); }
+    .price-dn   { color: var(--red); }
+
+    /* key metrics row */
+    .metrics {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: var(--border);
+      border-top: 1px solid var(--border);
+    }
+    .metric {
+      background: var(--bg2); padding: 0.4rem 0.5rem;
+      display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+    }
+    .metric-label { font-size: 0.62rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
+    .metric-val   { font-size: 0.82rem; font-weight: 600; }
+
+    .rsi-hot  { color: var(--red); }
+    .rsi-warm { color: var(--green); }
+    .rsi-cold { color: #79c0ff; }
+    .rsi-norm { color: var(--muted); }
+    .macd-bull { color: var(--green); }
+    .macd-bear { color: var(--red); }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    .na  { color: var(--dim); }
+
+    /* comment */
+    .card-comment {
+      padding: 0.45rem 0.75rem; font-size: 0.78rem;
+      color: var(--muted); line-height: 1.5;
+      border-top: 1px solid var(--bg3);
+    }
+
+    /* expandable extra metrics */
+    .card-more-btn {
+      width: 100%; background: none; border: none;
+      border-top: 1px solid var(--bg3);
+      color: var(--dim); font-size: 0.78rem; padding: 0.4rem;
+      cursor: pointer; text-align: center;
+    }
+    .card-more-btn:active { background: var(--bg3); }
+    .card-extra {
+      display: none; background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+    .card-extra.open { display: block; }
+    .extra-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: var(--border);
+    }
+
+    /* ── bottom action bar ── */
+    .bottombar {
+      height: var(--bottombar-h); min-height: var(--bottombar-h);
+      background: var(--bg2); border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-around;
+      padding: 0 0.5rem; flex-shrink: 0; z-index: 10;
+    }
+    .bottom-btn {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.15rem; background: none; border: none;
+      color: var(--muted); cursor: pointer; padding: 0.4rem 0.8rem;
+      border-radius: 8px; transition: color 0.12s, background 0.12s;
+      font-size: 0.65rem; font-weight: 600; min-width: 60px;
+    }
+    .bottom-btn .ico { font-size: 1.2rem; }
+    .bottom-btn:active { background: var(--bg3); color: var(--text); }
+    .bottom-btn.active { color: var(--blue); }
+
+    /* ── modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 60; display: none; align-items: flex-end;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      width: 100%; background: var(--bg2);
+      border-radius: 16px 16px 0 0; border-top: 1px solid var(--border);
+      padding: 1.25rem 1rem 2rem; display: flex; flex-direction: column; gap: 0.75rem;
+    }
+    .modal h3 { font-size: 1rem; }
+    .modal-btns { display: flex; gap: 0.5rem; }
+    .modal-btns button { flex: 1; }
+
+    /* ── theme picker (bottom sheet style on mobile) ── */
+    .theme-sheet-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 70; display: none;
+    }
+    .theme-sheet-overlay.open { display: block; }
+    .theme-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      background: var(--bg2); border-radius: 16px 16px 0 0;
+      border-top: 1px solid var(--border);
+      padding: 1rem 1rem 2rem; z-index: 71;
+      transform: translateY(100%); transition: transform 0.22s ease;
+    }
+    .theme-sheet.open { transform: translateY(0); }
+    .theme-sheet h3 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; }
+    .theme-opts { display: flex; gap: 0.6rem; }
+    .theme-opt {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      padding: 0.75rem 0.5rem; border-radius: 10px; cursor: pointer;
+      border: 2px solid var(--border); transition: border-color 0.15s;
+      font-size: 0.8rem; color: var(--text); font-weight: 600;
+    }
+    .theme-opt.active { border-color: var(--blue); }
+    .swatch {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 2px solid var(--border);
+    }
+
+    /* ── white theme ── */
+    html.theme-white {
+      --bg: #ffffff; --bg2: #f6f8fa; --bg3: #eaeef2;
+      --border: #d0d7de; --text: #24292f; --muted: #57606a; --dim: #8c959f;
+    }
+    html.theme-white .rec-strong-buy { background: #dafbe1; border-color: #2da44e88; }
+    html.theme-white .rec-buy        { background: #dafbe1; border-color: #2da44e55; }
+    html.theme-white .rec-hold       { background: #fff8c5; border-color: #d4a72c88; }
+    html.theme-white .rec-under      { background: #fff1d3; border-color: #d4660088; }
+    html.theme-white .rec-sell       { background: #ffebe9; border-color: #cf222e88; }
+    html.theme-white .symbol-badge   { background: #ddf4ff; border-color: #79c0ff88; }
+    html.theme-white .chip           { background: #ddf4ff; border-color: #79c0ff88; }
+    html.theme-white .btn-sync  { background: #dafbe1; border-color: #2da44e88; color: #116329; }
+    html.theme-white .btn-danger{ background: #ffebe9; border-color: #cf222e88; }
+
+    /* ── light-blue theme ── */
+    html.theme-lightblue {
+      --bg: #eaf5ff; --bg2: #d7edf9; --bg3: #c2dff0;
+      --border: #8abcd8; --text: #0a2742; --muted: #2d6a8a; --dim: #5a90b0;
+    }
+    html.theme-lightblue .rec-strong-buy { background: #d0f0da; border-color: #2da44e88; }
+    html.theme-lightblue .rec-buy        { background: #d0f0da; border-color: #2da44e55; }
+    html.theme-lightblue .rec-hold       { background: #fdf3c8; border-color: #d4a72c88; }
+    html.theme-lightblue .rec-under      { background: #fde8cc; border-color: #d4660088; }
+    html.theme-lightblue .rec-sell       { background: #fdd5d1; border-color: #cf222e88; }
+    html.theme-lightblue .symbol-badge   { background: #cce8ff; border-color: #5aacde88; }
+    html.theme-lightblue .chip           { background: #cce8ff; border-color: #5aacde88; }
+    html.theme-lightblue .btn-sync  { background: #d0f0da; border-color: #2da44e88; color: #116329; }
+    html.theme-lightblue .btn-danger{ background: #fdd5d1; border-color: #cf222e88; }
+
+
+    /* ── light-yellow theme ── */
+    html.theme-lightyellow {
+      --bg: #fffbe8; --bg2: #fef9df; --bg3: #fdf7d7;
+      --border: #f3eac1; --text: #1e1400; --muted: #4a3200; --dim: #8a6a10;
+    }
+    html.theme-lightyellow .rec-strong-buy { background: #b3e4bf; border-color: #2da44e88; }
+    html.theme-lightyellow .rec-buy        { background: #b3e4bf; border-color: #2da44e55; }
+    html.theme-lightyellow .rec-hold       { background: #fef9df; border-color: #f3eac188; }
+    html.theme-lightyellow .rec-under      { background: #f3d4a6; border-color: #c07000aa; }
+    html.theme-lightyellow .rec-sell       { background: #f4b8b1; border-color: #cf222e88; }
+    html.theme-lightyellow .symbol-badge   { background: #fef9df; border-color: #f3eac188; }
+    html.theme-lightyellow .chip           { background: #fef9df; border-color: #f3eac188; }
+    html.theme-lightyellow .btn-sync  { background: #b3e4bf; border-color: #2da44e88; color: #0a4020; }
+    html.theme-lightyellow .btn-danger{ background: #f4b8b1; border-color: #cf222e88; }
+  </style>
+</head>
+<body>
+
+<!-- drawer overlay -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- left drawer: profile list -->
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <h2>投資組合</h2>
+    <button class="icon-btn" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-footer">
+    <div class="new-form" id="newForm">
+      <input id="newName"   placeholder="組合名稱" maxlength="30"/>
+      <input id="newStocks" placeholder="股票代碼（空格分隔，選填）"/>
+      <label style="font-size:0.78rem;color:var(--muted);border:1px dashed var(--border);border-radius:6px;padding:0.35rem;text-align:center;cursor:pointer;">
+        📂 從 CSV/TXT 匯入
+        <input type="file" accept=".csv,.txt" style="display:none" onchange="importFileToNewForm(this)"/>
+      </label>
+      <div class="row">
+        <button class="btn btn-green" onclick="submitNewProfile()">建立</button>
+        <button class="btn btn-ghost" onclick="cancelNew()">取消</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="toggleNewForm()">＋ 新增投資組合</button>
+  </div>
+</div>
+
+<!-- topbar -->
+<div class="topbar">
+  <span class="topbar-title">📈</span>
+  <div class="topbar-profile-pill" onclick="openDrawer()">
+    <span>☰</span>
+    <span id="topProfileLabel" class="no-profile">選擇投資組合</span>
+  </div>
+  <button class="icon-btn" id="searchToggleBtn" onclick="toggleSearch()" title="個股查詢">🔍</button>
+  <button class="icon-btn" onclick="openThemeSheet()" title="切換主題">🎨</button>
+</div>
+
+<!-- theme bottom sheet -->
+<div class="theme-sheet-overlay" id="themeSheetOverlay" onclick="closeThemeSheet()"></div>
+<div class="theme-sheet" id="themeSheet">
+  <h3>選擇主題</h3>
+  <div class="theme-opts">
+    <div class="theme-opt" data-theme="dark">
+      <span class="swatch" style="background:#0d1117;border-color:#58a6ff;"></span>🌙 深色
+    </div>
+    <div class="theme-opt" data-theme="white">
+      <span class="swatch" style="background:#ffffff;border-color:#d0d7de;"></span>☀️ 白色
+    </div>
+    <div class="theme-opt" data-theme="lightblue">
+      <span class="swatch" style="background:#d7edf9;border-color:#8abcd8;"></span>💙 淺藍
+    </div>
+    <div class="theme-opt" data-theme="lightyellow">
+      <span class="swatch" style="background:#fffbe8;border-color:#f3eac1;"></span>🌼 淺黃
+    </div>
+  </div>
+</div>
+
+<!-- main scroll -->
+<div class="main" id="main">
+
+  <!-- search bar (toggle) -->
+  <div class="search-bar hidden" id="searchBar">
+    <input class="search-input" id="symbolInput" type="text"
+           placeholder="AAPL 2330 NVDA…" autocomplete="off"/>
+    <button class="btn btn-green" onclick="adhocAnalyze()">查詢</button>
+  </div>
+
+  <!-- active profile panel -->
+  <div class="profile-panel" id="profilePanel">
+    <div class="profile-panel-top">
+      <span class="profile-panel-name" id="panelName">—</span>
+      <button class="btn btn-sync btn-sm" id="syncBtn" onclick="syncProfile()">⟳ 同步</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+    <div class="sync-time" id="syncTime"></div>
+    <div class="chip-wrap" id="chipWrap"></div>
+    <div class="chip-add-wrap">
+      <input id="addStockInput" placeholder="加入股票（如 AAPL）" maxlength="10"
+             onkeydown="if(event.key==='Enter')addStock()"/>
+      <button class="btn btn-blue btn-sm" onclick="addStock()">加入</button>
+      <button class="btn btn-ghost btn-sm"
+              onclick="document.getElementById('importFile').click()">📂</button>
+      <input type="file" id="importFile" accept=".csv,.txt"
+             style="display:none" onchange="importFileToProfile(this)"/>
+    </div>
+  </div>
+
+  <div class="spinner" id="spinner">⏳ 資料載入中，請稍候…</div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div id="cardList">
+    <div class="empty-state">點選上方組合或搜尋個股</div>
+  </div>
+</div>
+
+<!-- bottom action bar -->
+<div class="bottombar">
+  <button class="bottom-btn" onclick="openDrawer()">
+    <span class="ico">📁</span>組合
+  </button>
+  <button class="bottom-btn" id="syncBottomBtn" onclick="syncProfile()">
+    <span class="ico">⟳</span>同步
+  </button>
+  <button class="bottom-btn" onclick="toggleSearch()">
+    <span class="ico">🔍</span>查詢
+  </button>
+  <button class="bottom-btn" onclick="exportCSV()">
+    <span class="ico">⬇</span>匯出
+  </button>
+  <a class="bottom-btn" href="/desktop" style="text-decoration:none;color:inherit;">
+    <span class="ico">🖥</span>桌面版
+  </a>
+</div>
+
+<!-- delete confirm modal (slides up from bottom) -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>刪除「<span id="deleteModalName"></span>」？</h3>
+    <p style="font-size:0.85rem;color:var(--muted);">此操作無法復原。</p>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">取消</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">確定刪除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── state ── */
+let activeProfile  = null;
+let profilesData   = {};
+let currentResults = [];
+let searchVisible  = false;
+
+/* ── init ── */
+document.getElementById("symbolInput")
+  .addEventListener("keydown", e => { if (e.key==="Enter") adhocAnalyze(); });
+loadProfiles();
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.register("/static/sw.js").catch(()=>{});
+
+/* ── profiles ── */
+async function loadProfiles() {
+  const res = await fetch("/profiles");
+  profilesData = await res.json();
+  renderDrawer();
+}
+
+function renderDrawer() {
+  const body  = document.getElementById("drawerBody");
+  const names = Object.keys(profilesData);
+  if (!names.length) {
+    body.innerHTML = `<div style="padding:1rem;font-size:0.82rem;color:var(--dim);">尚無投資組合</div>`;
+    return;
+  }
+  body.innerHTML = names.map(name => {
+    const p    = profilesData[name];
+    const sync = p.last_sync ? p.last_sync.slice(5,16) : "未同步";
+    const act  = name === activeProfile;
+    return `
+      <div class="profile-item ${act?"active":""}" data-name="${esc(name)}">
+        <div class="profile-item-info">
+          <div class="profile-item-name">${esc(name)}</div>
+          <div class="profile-item-meta">${p.stocks.length} 檔 · ${sync}</div>
+        </div>
+        <span class="profile-item-del" data-del="${esc(name)}">✕</span>
+      </div>`;
+  }).join("");
+
+  body.querySelectorAll(".profile-item").forEach(el => {
+    el.addEventListener("click", e => {
+      if (e.target.dataset.del) { openDeleteModal(e.target.dataset.del); return; }
+      selectProfile(el.dataset.name);
+      closeDrawer();
+    });
+  });
+}
+
+/* ── select profile ── */
+async function selectProfile(name) {
+  activeProfile = name;
+  renderDrawer();
+  document.getElementById("topProfileLabel").textContent = name;
+  document.getElementById("topProfileLabel").classList.remove("no-profile");
+  document.getElementById("panelName").textContent = name;
+  document.getElementById("profilePanel").classList.add("visible");
+
+  const res  = await fetch(`/profiles/${encodeURIComponent(name)}`);
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  renderChips(data.stocks);
+  document.getElementById("syncTime").textContent = data.last_sync ? `上次同步：${data.last_sync}` : "";
+  if (data.cache && data.cache.length) renderCards(data.cache);
+  else document.getElementById("cardList").innerHTML = `<div class="empty-state">尚未同步，請按「⟳ 同步」</div>`;
+}
+
+function renderChips(stocks) {
+  document.getElementById("chipWrap").innerHTML = (stocks||[]).map(s => `
+    <span class="chip">${esc(s)}
+      <button data-sym="${esc(s)}" onclick="removeStock(this.dataset.sym)">✕</button>
+    </span>`).join("");
+}
+
+/* ── sync ── */
+async function syncProfile() {
+  if (!activeProfile) { showError("請先選擇投資組合"); return; }
+  const btn = document.getElementById("syncBtn");
+  btn.disabled = true; btn.textContent = "…";
+  showSpinner(true); clearError();
+  try {
+    const res  = await fetch(`/profiles/${encodeURIComponent(activeProfile)}/sync`, {method:"POST"});
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    profilesData[activeProfile].last_sync = data.last_sync;
+    renderDrawer();
+    document.getElementById("syncTime").textContent = `上次同步：${data.last_sync}`;
+    renderCards(data.results);
+  } catch { showError("同步失敗"); }
+  finally { btn.disabled=false; btn.textContent="⟳ 同步"; showSpinner(false); }
+}
+
+/* ── add / remove stock ── */
+async function addStock() {
+  if (!activeProfile) return;
+  const inp = document.getElementById("addStockInput");
+  const sym = inp.value.trim().toUpperCase();
+  if (!sym) return;
+  const stocks = profilesData[activeProfile].stocks;
+  if (stocks.includes(sym)) { inp.value=""; return; }
+  const newStocks = [...stocks, sym];
+  const res = await fetch(`/profiles/${encodeURIComponent(activeProfile)}`, {
+    method:"PUT", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({stocks: newStocks})
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  profilesData[activeProfile].stocks = newStocks;
+  renderChips(newStocks); renderDrawer(); inp.value="";
+}
+
+async function removeStock(sym) {
+  if (!activeProfile) return;
+  const newStocks = profilesData[activeProfile].stocks.filter(s=>s!==sym);
+  const res = await fetch(`/profiles/${encodeURIComponent(activeProfile)}`, {
+    method:"PUT", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({stocks: newStocks})
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  profilesData[activeProfile].stocks = newStocks;
+  renderChips(newStocks); renderDrawer();
+}
+
+/* ── ad-hoc search ── */
+async function adhocAnalyze() {
+  const symbols = document.getElementById("symbolInput").value.trim();
+  if (!symbols) return;
+  activeProfile = null;
+  document.getElementById("topProfileLabel").textContent = "選擇投資組合";
+  document.getElementById("topProfileLabel").classList.add("no-profile");
+  document.getElementById("profilePanel").classList.remove("visible");
+  renderDrawer();
+  showSpinner(true); clearError();
+  try {
+    const res  = await fetch("/analyze", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({symbols})
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    renderCards(data.results);
+    toggleSearch(false);
+  } catch { showError("查詢失敗"); }
+  finally { showSpinner(false); }
+}
+
+/* ── create profile ── */
+function toggleNewForm() {
+  const f = document.getElementById("newForm");
+  f.classList.toggle("visible");
+  if (f.classList.contains("visible")) document.getElementById("newName").focus();
+}
+function cancelNew() {
+  document.getElementById("newForm").classList.remove("visible");
+  document.getElementById("newName").value = "";
+  document.getElementById("newStocks").value = "";
+}
+async function submitNewProfile() {
+  const name   = document.getElementById("newName").value.trim();
+  const raw    = document.getElementById("newStocks").value;
+  const stocks = raw.replace(/,/g," ").split(/\s+/).filter(Boolean).map(s=>s.toUpperCase());
+  if (!name) { document.getElementById("newName").focus(); return; }
+  const res  = await fetch("/profiles", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({name, stocks})
+  });
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  profilesData[name] = {stocks, last_sync: null};
+  cancelNew(); renderDrawer(); selectProfile(name); closeDrawer();
+}
+
+/* ── delete profile ── */
+let pendingDelete = null;
+function openDeleteModal(name) {
+  pendingDelete = name;
+  document.getElementById("deleteModalName").textContent = name;
+  document.getElementById("deleteModal").classList.add("open");
+}
+function closeDeleteModal() {
+  document.getElementById("deleteModal").classList.remove("open");
+  pendingDelete = null;
+}
+async function confirmDelete() {
+  const name = pendingDelete; closeDeleteModal();
+  if (!name) return;
+  const res  = await fetch(`/profiles/${encodeURIComponent(name)}`, {method:"DELETE"});
+  const data = await res.json();
+  if (data.error) { showError(data.error); return; }
+  delete profilesData[name];
+  if (activeProfile === name) {
+    activeProfile = null;
+    document.getElementById("topProfileLabel").textContent = "選擇投資組合";
+    document.getElementById("topProfileLabel").classList.add("no-profile");
+    document.getElementById("profilePanel").classList.remove("visible");
+    document.getElementById("cardList").innerHTML = `<div class="empty-state">點選上方組合或搜尋個股</div>`;
+  }
+  renderDrawer();
+}
+
+/* ── drawer ── */
+function openDrawer() {
+  document.getElementById("drawer").classList.add("open");
+  document.getElementById("drawerOverlay").classList.add("open");
+}
+function closeDrawer() {
+  document.getElementById("drawer").classList.remove("open");
+  document.getElementById("drawerOverlay").classList.remove("open");
+}
+
+/* ── search toggle ── */
+function toggleSearch(force) {
+  searchVisible = (force !== undefined) ? force : !searchVisible;
+  document.getElementById("searchBar").classList.toggle("hidden", !searchVisible);
+  if (searchVisible) document.getElementById("symbolInput").focus();
+}
+
+/* ── CSV export ── */
+function exportCSV() {
+  const rows = currentResults.filter(r => !r.error);
+  if (!rows.length) { showError("尚無資料可匯出，請先同步行情。"); return; }
+  const HEADERS = ["股票代碼","公司名稱","目前市價","目標價","漲幅%","前瞻PE","PEG","RSI","MACD","距52W高%","財報日","營收成長YoY","分析師數","買入%","投資建議","核心評論"];
+  const escape = v => { const s=String(v??""); return (s.includes(",")||s.includes('"')||s.includes("\n")) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const lines = [HEADERS.join(","), ...rows.map(r=>[
+    r.display_symbol||r.symbol, r.company_name, r.current_price_fmt,
+    r.target_price_fmt, r.upside_pct!=null?`${r.upside_pct>0?"+":""}${r.upside_pct}%`:"N/A",
+    r.forward_pe_fmt, r.peg_fmt, r.rsi_fmt, r.macd_label,
+    r.pct_from_52w_high_fmt, r.next_earnings_fmt, r.rev_growth_fmt,
+    r.n_analysts??"N/A", r.buy_pct!=null?`${r.buy_pct}%`:"N/A",
+    r.recommendation, r.comment
+  ].map(escape).join(","))];
+  const blob = new Blob(["﻿"+lines.join("\r\n")], {type:"text/csv;charset=utf-8;"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${activeProfile||"stock"}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ── file import ── */
+const HEADER_WORDS = new Set(["ticker","symbol","stock","name","代碼","股票"]);
+function parseSymbols(text, filename) {
+  const isCSV = filename.toLowerCase().endsWith(".csv");
+  const seen=new Set(), out=[];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const tokens = isCSV ? [rawLine.split(",")[0]] : rawLine.split(/[\s,;\t]+/);
+    for (const t of tokens) {
+      const s = t.trim().replace(/^["']|["']$/g,"").toUpperCase();
+      if (!s || HEADER_WORDS.has(s.toLowerCase())) continue;
+      if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(s) && !/^\d{4,6}[A-Z]{0,2}$/.test(s)) continue;
+      if (!seen.has(s)) { seen.add(s); out.push(s); }
+    }
+  }
+  return out;
+}
+function readFile(file) {
+  return new Promise((ok,fail)=>{
+    const r=new FileReader();
+    r.onload=e=>ok(e.target.result);
+    r.onerror=()=>fail(new Error("讀取失敗"));
+    r.readAsText(file);
+  });
+}
+async function importFileToNewForm(inp) {
+  if (!inp.files.length) return;
+  const file=inp.files[0]; inp.value="";
+  const syms=parseSymbols(await readFile(file), file.name);
+  if (!syms.length) { showError("找不到有效股票代碼"); return; }
+  const existing = document.getElementById("newStocks").value.trim();
+  const merged = [...new Set([...existing.split(/\s+/).filter(Boolean), ...syms])];
+  document.getElementById("newStocks").value = merged.join(" ");
+}
+async function importFileToProfile(inp) {
+  if (!activeProfile||!inp.files.length) return;
+  const file=inp.files[0]; inp.value="";
+  const syms=parseSymbols(await readFile(file), file.name);
+  if (!syms.length) { showError("找不到有效股票代碼"); return; }
+  const newStocks=[...new Set([...profilesData[activeProfile].stocks, ...syms])];
+  const res=await fetch(`/profiles/${encodeURIComponent(activeProfile)}`,{
+    method:"PUT",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({stocks:newStocks})
+  });
+  const data=await res.json();
+  if (data.error){showError(data.error);return;}
+  profilesData[activeProfile].stocks=newStocks;
+  renderChips(newStocks); renderDrawer(); clearError();
+}
+
+/* ── render cards ── */
+function renderCards(results) {
+  currentResults = results;
+  const list = document.getElementById("cardList");
+  if (!results.length) { list.innerHTML=`<div class="empty-state">無資料</div>`; return; }
+  list.innerHTML = results.map((r,i) => {
+    if (r.error) return `
+      <div class="card">
+        <div class="card-top">
+          <span class="symbol-badge">${esc(r.symbol||"?")}</span>
+          <span style="color:var(--red);font-size:0.82rem;">${esc(r.error)}</span>
+        </div>
+      </div>`;
+
+    const upCls = r.upside_pct>=0 ? "price-up" : "price-dn";
+    const upTxt = r.upside_pct!=null ? `(${r.upside_pct>0?"+":""}${r.upside_pct}%)` : "";
+    return `
+      <div class="card">
+        <div class="card-top">
+          <span class="symbol-badge">${esc(r.display_symbol||r.symbol)}</span>${r.is_taiwan?" 🇹🇼":""}
+          <div class="card-names">
+            <div class="card-company">${esc(r.company_name)}</div>
+          </div>
+          <span class="rec-badge ${recClass(r.recommendation)}">${r.recommendation}</span>
+        </div>
+
+        <div class="card-price">
+          <span class="price-now">${r.current_price_fmt}</span>
+          <span class="price-target ${upCls}">${r.target_price_fmt} ${upTxt}</span>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <span class="metric-label">RSI</span>
+            <span class="metric-val ${rsiCls(r.rsi)}">${r.rsi_fmt}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">MACD</span>
+            <span class="metric-val ${r.macd_bullish?"macd-bull":"macd-bear"}">${r.macd_label||"N/A"}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">距52W高</span>
+            <span class="metric-val ${(r.pct_from_52w_high||0)>=0?"pos":"neg"}">${r.pct_from_52w_high_fmt}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">財報日</span>
+            <span class="metric-val" style="color:#79c0ff">${r.next_earnings_fmt}</span>
+          </div>
+        </div>
+
+        <div class="card-comment">${esc(r.comment)}</div>
+
+        <button class="card-more-btn" onclick="toggleExtra(${i})">▼ 更多指標</button>
+        <div class="card-extra" id="extra-${i}">
+          <div class="extra-grid">
+            <div class="metric"><span class="metric-label">前瞻PE</span><span class="metric-val" style="color:var(--purple)">${r.forward_pe_fmt}</span></div>
+            <div class="metric"><span class="metric-label">PEG</span><span class="metric-val ${pegCls(r.peg_ratio)}">${r.peg_fmt}</span></div>
+            <div class="metric"><span class="metric-label">營收YoY</span><span class="metric-val ${(r.rev_growth||0)>=0?"pos":"neg"}">${r.rev_growth_fmt}</span></div>
+            <div class="metric"><span class="metric-label">分析師/買入</span><span class="metric-val ${buyCls(r.buy_pct)}">${r.analyst_fmt}</span></div>
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function toggleExtra(i) {
+  const el  = document.getElementById(`extra-${i}`);
+  const btn = el.previousElementSibling;
+  const open = el.classList.toggle("open");
+  btn.textContent = open ? "▲ 收起" : "▼ 更多指標";
+}
+
+/* ── helpers ── */
+function rsiCls(v) {
+  if (v==null) return "rsi-norm";
+  if (v>=70) return "rsi-hot"; if (v>=55) return "rsi-warm";
+  if (v<=35) return "rsi-cold"; return "rsi-norm";
+}
+function recClass(r) {
+  if (r.includes("強力買入")) return "rec-strong-buy";
+  if (r.includes("買入"))    return "rec-buy";
+  if (r.includes("持有"))    return "rec-hold";
+  if (r.includes("低配"))    return "rec-under";
+  if (r.includes("賣出"))    return "rec-sell";
+  return "rec-hold";
+}
+function pegCls(v) { if (!v) return "na"; return v<=1.5?"pos":(v<=3?"":"neg"); }
+function buyCls(v) { if (v==null) return "na"; return v>=70?"pos":(v>=50?"":"neg"); }
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function showSpinner(v) { document.getElementById("spinner").classList.toggle("visible",v); }
+function showError(msg) { const e=document.getElementById("errorMsg"); e.textContent=msg; e.style.display="block"; }
+function clearError() { document.getElementById("errorMsg").style.display="none"; }
+
+/* ── theme ── */
+const THEMES = ["dark","white","lightblue","lightyellow"];
+function applyTheme(t) {
+  document.documentElement.classList.remove(...THEMES.map(x=>`theme-${x}`));
+  if (t !== "dark") document.documentElement.classList.add(`theme-${t}`);
+  localStorage.setItem("theme", t);
+  document.querySelectorAll(".theme-opt").forEach(el =>
+    el.classList.toggle("active", el.dataset.theme === t));
+}
+function openThemeSheet() {
+  document.getElementById("themeSheet").classList.add("open");
+  document.getElementById("themeSheetOverlay").classList.add("open");
+}
+function closeThemeSheet() {
+  document.getElementById("themeSheet").classList.remove("open");
+  document.getElementById("themeSheetOverlay").classList.remove("open");
+}
+document.querySelectorAll(".theme-opt").forEach(el =>
+  el.addEventListener("click", () => { applyTheme(el.dataset.theme); closeThemeSheet(); }));
+applyTheme(localStorage.getItem("theme") || "dark");
+
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.register("/static/sw.js").catch(()=>{});
+</script>
+</body>
+</html>
