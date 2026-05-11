@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#161b22"/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <title>市場總覽</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149; --yellow:#e3b341;
+      --topbar-h:50px; --bottombar-h:50px;
+    }
+    html, body { height:100%; overflow:hidden; }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC",sans-serif;
+           background:var(--bg); color:var(--text);
+           display:flex; flex-direction:column;
+           -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+    /* topbar */
+    .topbar { height:var(--topbar-h); display:flex; align-items:center; gap:0.5rem;
+              padding:0 1rem; background:var(--bg2); border-bottom:1px solid var(--border);
+              flex-shrink:0; }
+    .topbar h1 { font-size:0.95rem; font-weight:700; color:var(--blue); flex:1; }
+    .back-btn  { color:var(--muted); font-size:0.8rem; text-decoration:none;
+                 padding:0.25rem 0.6rem; border:1px solid var(--border); border-radius:6px; }
+
+    /* market tabs */
+    .tab-bar { display:flex; background:var(--bg2); border-bottom:1px solid var(--border);
+               flex-shrink:0; }
+    .tab-btn { flex:1; padding:0.6rem; border:none; background:none; color:var(--muted);
+               font-size:0.88rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
+    .tab-btn.active { color:var(--blue); border-bottom-color:var(--blue); }
+
+    /* scroll area */
+    .main { flex:1; overflow-y:auto; padding:0.75rem;
+            padding-bottom:calc(var(--bottombar-h)+0.75rem);
+            -webkit-overflow-scrolling:touch; }
+
+    /* section */
+    .section { background:var(--bg2); border:1px solid var(--border);
+               border-radius:10px; margin-bottom:0.75rem; overflow:hidden; }
+    .section-header { display:flex; align-items:center; justify-content:space-between;
+                      padding:0.6rem 0.8rem; border-bottom:1px solid var(--border); }
+    .section-title { font-size:0.88rem; font-weight:700; }
+    .section-sub   { font-size:0.7rem; color:var(--dim); }
+
+    /* rows */
+    .row-item { display:flex; align-items:center; gap:0.4rem;
+                padding:0.5rem 0.8rem; border-bottom:1px solid var(--bg3); }
+    .row-item:last-child { border-bottom:none; }
+    .rank   { color:var(--dim); font-size:0.72rem; min-width:18px; }
+    .sym    { font-weight:700; color:var(--blue); font-size:0.82rem; min-width:50px; }
+    .r-name { font-size:0.75rem; color:var(--muted); flex:1;
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .r-price { font-size:0.8rem; font-weight:600; min-width:70px; text-align:right; }
+    .r-chg   { font-size:0.82rem; font-weight:600; min-width:60px; text-align:right; }
+    .pos { color:var(--green); } .neg { color:var(--red); } .neut { color:var(--muted); }
+
+    /* sector bars */
+    .sector-row { display:flex; align-items:center; gap:0.5rem;
+                  padding:0.45rem 0.8rem; border-bottom:1px solid var(--bg3); }
+    .sector-row:last-child { border-bottom:none; }
+    .s-name { font-size:0.8rem; font-weight:600; min-width:75px; }
+    .s-bar-wrap { flex:1; background:var(--bg3); border-radius:3px; height:5px; }
+    .s-bar { height:100%; border-radius:3px; }
+    .s-pct  { font-size:0.8rem; font-weight:600; min-width:52px; text-align:right; }
+
+    /* status bar */
+    .status-bar { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+                  padding:0.35rem 1rem; background:var(--bg2);
+                  border-bottom:1px solid var(--border); font-size:0.72rem; flex-shrink:0; }
+    .s-open  { color:var(--green); font-weight:600; }
+    .s-closed{ color:var(--muted); }
+
+    /* bottom bar */
+    .bottombar { height:var(--bottombar-h); background:var(--bg2);
+                 border-top:1px solid var(--border); display:flex;
+                 align-items:center; justify-content:center; flex-shrink:0; }
+    .updated { font-size:0.72rem; color:var(--dim); }
+
+    /* spinner */
+    .spinner { text-align:center; color:var(--muted); padding:2rem; font-size:0.85rem; }
+
+    /* themes */
+    html.theme-white {
+      --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f;
+    }
+    html.theme-lightblue {
+      --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0;
+    }
+    html.theme-lightyellow {
+      --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📊 市場總覽</h1>
+  <a class="back-btn" href="/m">← 返回</a>
+</div>
+
+<div class="status-bar" id="statusBar">
+  <span id="mktStatusUS" class="s-closed">🇺🇸 —</span>
+  <span id="mktStatusTW" class="s-closed">🇹🇼 —</span>
+  <span id="mktFetchTime" style="margin-left:auto;color:var(--dim);"></span>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-market="US" onclick="switchMarket('US')">🇺🇸 美股</button>
+  <button class="tab-btn"        data-market="TW" onclick="switchMarket('TW')">🇹🇼 台股</button>
+</div>
+
+<div class="main" id="main">
+  <div class="spinner">⏳ 載入中…</div>
+</div>
+
+<div class="bottombar">
+  <span class="updated" id="updatedAt"></span>
+</div>
+
+<script>
+let curMarket = "US";
+
+(function(){
+  const t = localStorage.getItem("theme") || "dark";
+  if (t !== "dark") document.documentElement.classList.add("theme-" + t);
+})();
+
+function switchMarket(m) {
+  curMarket = m;
+  document.querySelectorAll(".tab-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.market === m));
+  loadMarket(m);
+}
+
+async function loadMarket(market) {
+  document.getElementById("main").innerHTML = `<div class="spinner">⏳ 載入中…</div>`;
+  try {
+    const res  = await fetch(`/market/data?market=${market}`);
+    const data = await res.json();
+    if (data.error) { document.getElementById("main").innerHTML = `<p style="color:var(--red);padding:1rem">${data.error}</p>`; return; }
+    // Populate status bar (always show both markets)
+    const allStatus = await fetch(`/market/data?market=${market === "US" ? "TW" : "US"}`)
+      .then(r => r.json()).catch(() => ({}));
+    const usData = market === "US" ? data : allStatus;
+    const twData = market === "TW" ? data : allStatus;
+    function setStatus(elId, ms) {
+      const el = document.getElementById(elId);
+      if (!el || !ms) return;
+      const flag = elId.includes("US") ? "🇺🇸" : "🇹🇼";
+      el.textContent = `${flag} ${ms.status || "—"} ${ms.local_time || ""} ${ms.timezone || ""}`;
+      el.className = ms.is_open ? "s-open" : "s-closed";
+    }
+    setStatus("mktStatusUS", (usData.market_status));
+    setStatus("mktStatusTW", (twData.market_status));
+    const ft = document.getElementById("mktFetchTime");
+    if (ft) ft.textContent = data.fetch_time ? `取得：${data.fetch_time}` : "";
+    document.getElementById("updatedAt").textContent = "";
+    document.getElementById("main").innerHTML =
+      mGainers(data.gainers, market) +
+      mVolume(data.volume, market) +
+      mSectors(data.sectors, market) +
+      mExpert(data.expert, market);
+  } catch(e) {
+    document.getElementById("main").innerHTML = `<p style="color:var(--red);padding:1rem">載入失敗</p>`;
+  }
+}
+
+function chg(v) {
+  if (v == null) return `<span class="neut">N/A</span>`;
+  const c = v>0?"pos":v<0?"neg":"neut";
+  return `<span class="${c}">${v>0?"+":""}${v}%</span>`;
+}
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function mRows(rows, cols) {
+  return (rows||[]).map((r, i) => `
+    <div class="row-item">
+      <span class="rank">${i+1}</span>
+      <span class="sym">${esc(r.symbol)}</span>
+      <span class="r-name">${esc(r.name)}</span>
+      ${cols(r)}
+    </div>`).join("") || `<div class="row-item"><span style="color:var(--dim)">無資料</span></div>`;
+}
+
+function mGainers(rows, market) {
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">🚀 ${market==="TW"?"今日漲幅前10":"Top 10 Gainers"}</span>
+    </div>
+    ${mRows(rows, r => `<span class="r-price">${r.price_fmt||""}</span><span class="r-chg">${chg(r.change_pct)}</span>`)}
+  </div>`;
+}
+
+function mVolume(rows, market) {
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">📊 ${market==="TW"?"今日成交量前10":"Top 10 Volume"}</span>
+    </div>
+    ${mRows(rows, r => `<span class="r-price">${r.volume_fmt||""}</span><span class="r-chg">${chg(r.change_pct)}</span>`)}
+  </div>`;
+}
+
+function mSectors(rows, market) {
+  const maxAbs = Math.max(...(rows||[]).map(r=>Math.abs(r.change_pct||0)), 0.01);
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">🏭 ${market==="TW"?"類股表現":"Sector Performance"}</span>
+    </div>
+    <div>${(rows||[]).map(r=>{
+      const pct=r.change_pct, cls=pct>0?"pos":pct<0?"neg":"neut";
+      const w=pct!=null?Math.round(Math.abs(pct)/maxAbs*100):0;
+      const col=pct>0?"var(--green)":pct<0?"var(--red)":"var(--dim)";
+      return `<div class="sector-row">
+        <span class="s-name">${esc(r.name)}</span>
+        <div class="s-bar-wrap"><div class="s-bar" style="width:${w}%;background:${col}"></div></div>
+        <span class="s-pct ${cls}">${pct!=null?(pct>0?"+":"")+pct+"%":"N/A"}</span>
+      </div>`;
+    }).join("")||`<div style="padding:1rem;color:var(--dim)">無資料</div>`}
+    </div>
+  </div>`;
+}
+
+function mExpert(rows, market) {
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">⭐ ${market==="TW"?"法人推薦精選":"Motley Fool 精選"}</span>
+    </div>
+    ${mRows(rows, r => `
+      <span class="r-price">${r.price_fmt||""}</span>
+      <span class="r-chg">${market==="TW"
+        ? (r.upside_pct!=null?`<span class="pos">+${r.upside_pct}%</span>`:"N/A")
+        : chg(r.change_pct)}</span>`)}
+  </div>`;
+}
+
+loadMarket("US");
+</script>
+</body>
+</html>

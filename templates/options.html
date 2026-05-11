@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>美股選擇權 — 股票分析工具</title>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149;
+      --yellow:#e3b341; --orange:#f0883e; --purple:#d2a8ff;
+    }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC",sans-serif;
+           background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── topbar ── */
+    .topbar { display:flex; align-items:center; gap:0.75rem; padding:0 1.25rem;
+              height:50px; background:var(--bg2); border-bottom:1px solid var(--border);
+              position:sticky; top:0; z-index:10; }
+    .topbar h1 { font-size:1rem; font-weight:700; color:var(--blue); white-space:nowrap; }
+    .nav-link  { color:var(--muted); font-size:0.82rem; text-decoration:none;
+                 padding:0.3rem 0.7rem; border:1px solid var(--border); border-radius:6px; }
+    .nav-link:hover { color:var(--text); border-color:var(--muted); }
+
+    /* ── search + info bar ── */
+    .toolbar { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+               padding:0.75rem 1.5rem; background:var(--bg2);
+               border-bottom:1px solid var(--border); }
+    .search-wrap { display:flex; gap:0.5rem; flex:1; max-width:480px; }
+    .search-wrap input {
+      flex:1; padding:0.45rem 0.8rem; border-radius:6px;
+      border:1px solid var(--border); background:var(--bg3);
+      color:var(--text); font-size:0.9rem; outline:none;
+    }
+    .search-wrap input:focus { border-color:var(--blue); }
+    .search-wrap input::placeholder { color:var(--dim); }
+    .btn { padding:0.45rem 1rem; border-radius:6px; border:none; font-size:0.88rem;
+           font-weight:600; cursor:pointer; white-space:nowrap; transition:opacity .15s; }
+    .btn:hover   { opacity:.85; }
+    .btn:disabled{ opacity:.4; cursor:default; }
+    .btn-green { background:#238636; color:#fff; }
+    .btn-ghost { background:var(--bg3); color:var(--muted); border:1px solid var(--border); }
+    .fetch-info { font-size:0.75rem; color:var(--dim); margin-left:auto; }
+    .note       { font-size:0.72rem; color:var(--dim); }
+
+    /* ── table ── */
+    .table-wrap { overflow-x:auto; padding:1rem 1.5rem 2rem; }
+    table { width:100%; border-collapse:collapse; font-size:0.84rem; }
+    thead th {
+      background:var(--bg2); color:var(--muted); font-weight:600;
+      padding:0.55rem 0.75rem; text-align:left; white-space:nowrap;
+      border-bottom:2px solid var(--border); position:sticky; top:50px;
+    }
+    thead th .sub { display:block; font-size:0.68rem; font-weight:400;
+                    color:var(--dim); letter-spacing:0.04em; }
+    tbody tr { border-bottom:1px solid var(--bg3); transition:background .12s; }
+    tbody tr:hover { background:var(--bg2); }
+    tbody td { padding:0.6rem 0.75rem; vertical-align:middle; white-space:nowrap; }
+
+    /* ── cells ── */
+    .sym   { font-weight:700; color:var(--blue); }
+    .co    { font-size:0.72rem; color:var(--muted); }
+    .price { font-weight:600; }
+    .pos   { color:var(--green); font-weight:600; }
+    .neg   { color:var(--red);   font-weight:600; }
+    .na    { color:var(--dim);   }
+
+    /* IV Rank chip */
+    .ivr-chip { display:inline-block; padding:.12rem .5rem; border-radius:4px;
+                font-weight:700; font-size:0.82rem; }
+    .ivr-hi   { background:#3d1515; color:var(--red); }    /* >70 expensive */
+    .ivr-mid  { background:#2d1f0e; color:var(--orange); } /* 40-70 normal */
+    .ivr-lo   { background:#0d2a1a; color:var(--green); }  /* <40 cheap */
+
+    /* P/C chip */
+    .pc-bear  { color:var(--red);    font-weight:700; } /* >1.2 bearish */
+    .pc-bull  { color:var(--green);  font-weight:700; } /* <0.8 bullish */
+    .pc-neut  { color:var(--muted);  }
+
+    /* bar for % Put/Call */
+    .pct-bar  { display:flex; height:5px; border-radius:3px; overflow:hidden;
+                margin-top:2px; width:70px; }
+    .pct-put  { background:var(--red); }
+    .pct-call { background:var(--green); }
+
+    /* spinner / error */
+    .spinner  { text-align:center; color:var(--muted); padding:3rem; font-size:.9rem; }
+    .err-row td { color:var(--red); font-size:.82rem; }
+
+    /* themes */
+    html.theme-white {
+      --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f;
+    }
+    html.theme-lightblue {
+      --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0;
+    }
+    html.theme-lightyellow {
+      --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318;
+    }
+    html.theme-white   .ivr-hi  { background:#ffebe9; }
+    html.theme-white   .ivr-mid { background:#fff1d3; }
+    html.theme-white   .ivr-lo  { background:#dafbe1; }
+    html.theme-lightblue .ivr-hi{ background:#fdd5d1; }
+    html.theme-lightblue .ivr-mid{ background:#fde8cc; }
+    html.theme-lightblue .ivr-lo{ background:#d0f0da; }
+    html.theme-lightyellow .ivr-hi{ background:#f4b8b1; }
+    html.theme-lightyellow .ivr-mid{ background:#f3d4a6; }
+    html.theme-lightyellow .ivr-lo{ background:#b3e4bf; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📋 美股選擇權</h1>
+  <a class="nav-link" href="/">← 投資組合</a>
+  <a class="nav-link" href="/market">📊 市場</a>
+</div>
+
+<div class="toolbar">
+  <div class="search-wrap">
+    <input id="symInput" type="text" placeholder="輸入代碼（多個以空格分隔，如 AAPL NVDA）" autocomplete="off"/>
+    <button class="btn btn-green" id="searchBtn" onclick="loadOptions()">查詢</button>
+    <button class="btn btn-ghost" onclick="loadDefaults()">預設清單</button>
+  </div>
+  <span class="note">※ IV Rank / Pctl 以歷史波動率近似（HV基礎）；延遲約15分鐘</span>
+  <button class="btn btn-ghost" style="font-size:0.78rem;" onclick="toggleGuide()">💡 指標說明</button>
+  <span class="fetch-info" id="fetchInfo"></span>
+</div>
+
+<!-- guide panel -->
+<div id="guidePanel" style="display:none; background:var(--bg2); border-bottom:1px solid var(--border); padding:1rem 1.5rem; font-size:0.82rem; line-height:1.8;">
+  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem;">
+    <div>
+      <b style="color:var(--blue);">ATM IV（平值隱含波動率）</b><br/>
+      市場對股票未來波動的預期，越高代表選擇權越貴。<br/>
+      <span style="color:var(--dim);">一般股：20–40% 正常 ｜ >60% 偏高</span>
+    </div>
+    <div>
+      <b style="color:var(--blue);">IV Rank（HV基礎，0–100）</b><br/>
+      目前波動率在過去1年的相對位置。<br/>
+      <span style="color:var(--green);">&lt;30 偏低 → 適合買權</span>
+      <span style="color:var(--red);">&gt;70 偏高 → 適合賣權</span>
+    </div>
+    <div>
+      <b style="color:var(--blue);">預期波動（Expected Move）</b><br/>
+      公式：股價 × IV × √(天數/365)，代表到期日前 <b>±1σ（68% 機率）</b>的價格區間。<br/>
+      <span style="color:var(--dim);">每日波動 = 股價 × IV ÷ √252</span>
+    </div>
+    <div>
+      <b style="color:var(--blue);">P/C Vol（賣/買比）</b><br/>
+      Put 成交量 ÷ Call 成交量。<br/>
+      <span style="color:var(--red);">&gt;1.2 偏空（市場避險需求高）</span><br/>
+      <span style="color:var(--green);">&lt;0.8 偏多（看漲情緒強）</span>
+    </div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="spinner" id="spinner">⏳ 載入選擇權資料中，請稍候…</div>
+  <table id="optTable" style="display:none">
+    <thead>
+      <tr>
+        <th>代碼<span class="sub">Symbol</span></th>
+        <th>最新變動<span class="sub">Latest Chg</span></th>
+        <th>%變動<span class="sub">% Chg</span></th>
+        <th>ATM IV<span class="sub">近月平值</span></th>
+        <th>IV Rank<span class="sub">HV基礎 0–100</span></th>
+        <th>IV Pctl<span class="sub">歷史百分位</span></th>
+        <th>Options Vol<span class="sub">近月合約量</span></th>
+        <th>% Put<span class="sub">賣權占比</span></th>
+        <th>% Call<span class="sub">買權占比</span></th>
+        <th>P/C Vol<span class="sub">賣/買比</span></th>
+        <th>預期波動<span class="sub">Expected Move ±1σ</span></th>
+        <th>取得時間<span class="sub">Fetched</span></th>
+      </tr>
+    </thead>
+    <tbody id="optBody"></tbody>
+  </table>
+</div>
+
+<script>
+// Apply saved theme
+(function(){
+  const t = localStorage.getItem("theme") || "dark";
+  if (t !== "dark") document.documentElement.classList.add("theme-"+t);
+})();
+
+document.getElementById("symInput")
+  .addEventListener("keydown", e => { if (e.key==="Enter") loadOptions(); });
+
+function ivrClass(v) {
+  if (v == null) return "";
+  if (v > 70) return "ivr-chip ivr-hi";
+  if (v > 40) return "ivr-chip ivr-mid";
+  return "ivr-chip ivr-lo";
+}
+function pcClass(v) {
+  if (v == null) return "na";
+  if (v > 1.2) return "pc-bear";
+  if (v < 0.8) return "pc-bull";
+  return "pc-neut";
+}
+
+function expMoveHtml(r) {
+  if (!r.exp_to_exp_fmt || r.exp_to_exp_fmt === "N/A")
+    return `<span class="na">N/A</span>`;
+  const exp = r.nearest_exp ? r.nearest_exp.slice(5) : "";   // "MM-DD"
+  const days = r.days_to_exp;
+  return `<span style="font-weight:600;color:var(--yellow);">${r.exp_to_exp_fmt}</span>
+    <span style="font-size:.7rem;color:var(--dim);display:block;">${exp} (${days}d) | 每日${r.exp_daily_fmt}</span>`;
+}
+
+function toggleGuide() {
+  const p = document.getElementById("guidePanel");
+  p.style.display = p.style.display === "none" ? "block" : "none";
+}
+
+function renderRow(r) {
+  if (r.error) return `
+    <tr class="err-row">
+      <td class="sym">${esc(r.symbol)}</td>
+      <td colspan="11" style="color:var(--red)">${esc(r.error)}</td>
+    </tr>`;
+
+  const chgCls  = r.change  >= 0 ? "pos" : "neg";
+  const pctCls  = r.chg_pct >= 0 ? "pos" : "neg";
+  const putW    = r.put_pct  || 0;
+  const callW   = r.call_pct || 0;
+
+  return `<tr>
+    <td><span class="sym">${esc(r.symbol)}</span><br/><span class="co">${esc(r.name)}</span></td>
+    <td><span class="price">${r.price_fmt}</span><br/>
+        <span class="${chgCls}" style="font-size:.78rem">${r.change_fmt}</span></td>
+    <td><span class="${pctCls}">${r.chg_pct >= 0 ? "+" : ""}${r.chg_pct}%</span></td>
+    <td>${r.atm_iv_fmt !== "N/A" ? `<span style="color:var(--purple);font-weight:600">${r.atm_iv_fmt}</span>` : `<span class="na">N/A</span>`}</td>
+    <td>${r.iv_rank != null ? `<span class="${ivrClass(r.iv_rank)}">${r.iv_rank_fmt}</span>` : `<span class="na">N/A</span>`}</td>
+    <td>${r.iv_pctl != null ? `<span style="font-weight:600">${r.iv_pctl_fmt}</span>` : `<span class="na">N/A</span>`}</td>
+    <td style="font-weight:600">${r.options_vol_fmt}</td>
+    <td>
+      <span class="neg" style="font-weight:600">${r.put_pct != null ? r.put_pct+"%" : "—"}</span>
+      <div class="pct-bar">
+        <div class="pct-put"  style="width:${putW}%"></div>
+        <div class="pct-call" style="width:${callW}%"></div>
+      </div>
+    </td>
+    <td><span class="pos" style="font-weight:600">${r.call_pct != null ? r.call_pct+"%" : "—"}</span></td>
+    <td><span class="${pcClass(r.pc_ratio)}">${r.pc_ratio_fmt}</span></td>
+    <td>${expMoveHtml(r)}</td>
+    <td style="color:var(--dim);font-size:.75rem">${r.fetched_at || "—"}</td>
+  </tr>`;
+}
+
+async function fetchAndRender(url) {
+  document.getElementById("spinner").style.display = "block";
+  document.getElementById("optTable").style.display = "none";
+
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    const rows = data.results || [data];
+
+    document.getElementById("optBody").innerHTML = rows.map(renderRow).join("");
+    document.getElementById("optTable").style.display = "table";
+    document.getElementById("fetchInfo").textContent =
+      `共 ${rows.filter(r=>!r.error).length} 筆 · ${new Date().toLocaleTimeString("zh-TW")}`;
+  } catch(e) {
+    document.getElementById("optBody").innerHTML =
+      `<tr><td colspan="11" style="color:var(--red);padding:2rem;text-align:center">載入失敗：${e.message}</td></tr>`;
+    document.getElementById("optTable").style.display = "table";
+  } finally {
+    document.getElementById("spinner").style.display = "none";
+  }
+}
+
+function loadOptions() {
+  const raw = document.getElementById("symInput").value.trim();
+  if (!raw) { loadDefaults(); return; }
+  fetchAndRender(`/options/data?symbols=${encodeURIComponent(raw)}`);
+}
+
+function loadDefaults() {
+  document.getElementById("symInput").value = "";
+  fetchAndRender("/options/data");
+}
+
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Load default watchlist on page open
+loadDefaults();
+</script>
+</body>
+</html>

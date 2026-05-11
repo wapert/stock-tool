@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>市場總覽 — 股票分析工具</title>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149; --yellow:#e3b341;
+      --orange:#f0883e; --purple:#d2a8ff;
+    }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC","Microsoft JhengHei",sans-serif;
+           background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── topbar ── */
+    .topbar { display:flex; align-items:center; gap:0.75rem; padding:0 1.25rem;
+              height:50px; background:var(--bg2); border-bottom:1px solid var(--border);
+              position:sticky; top:0; z-index:10; }
+    .topbar h1 { font-size:1rem; font-weight:700; color:var(--blue); white-space:nowrap; }
+    .topbar a  { color:var(--muted); font-size:0.82rem; text-decoration:none;
+                 padding:0.3rem 0.7rem; border:1px solid var(--border); border-radius:6px; }
+    .topbar a:hover { color:var(--text); border-color:var(--muted); }
+    .updated { font-size:0.75rem; color:var(--dim); margin-left:auto; }
+
+    /* ── time/status banner ── */
+    .status-bar {
+      display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;
+      padding:0.5rem 1.5rem; background:var(--bg2);
+      border-bottom:1px solid var(--border); font-size:0.78rem;
+    }
+    .status-item { display:flex; align-items:center; gap:0.4rem; }
+    .status-label { color:var(--dim); }
+    .status-open  { color:var(--green); font-weight:600; }
+    .status-closed{ color:var(--muted); }
+    .status-time  { color:var(--text);  font-weight:600; }
+    .fetch-time   { margin-left:auto; color:var(--dim); font-size:0.75rem; }
+
+    /* ── market tabs ── */
+    .market-tabs { display:flex; gap:0.5rem; padding:1rem 1.5rem 0; }
+    .tab-btn {
+      padding:0.45rem 1.2rem; border-radius:8px; border:1px solid var(--border);
+      background:none; color:var(--muted); cursor:pointer; font-size:0.9rem;
+      font-weight:600; transition:all 0.15s;
+    }
+    .tab-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .tab-btn:hover:not(.active) { border-color:var(--muted); color:var(--text); }
+
+    /* ── main grid ── */
+    .main { padding:1rem 1.5rem 2rem; display:grid;
+            grid-template-columns:1fr 1fr; gap:1rem; }
+    @media(max-width:900px){ .main{ grid-template-columns:1fr; } }
+
+    /* ── section card ── */
+    .section {
+      background:var(--bg2); border:1px solid var(--border); border-radius:10px;
+      overflow:hidden;
+    }
+    .section-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0.75rem 1rem; border-bottom:1px solid var(--border);
+    }
+    .section-title { font-size:0.9rem; font-weight:700; }
+    .section-sub   { font-size:0.72rem; color:var(--dim); }
+
+    /* ── table inside section ── */
+    .sec-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    .sec-table th {
+      background:var(--bg3); color:var(--muted); font-weight:600;
+      padding:0.4rem 0.75rem; text-align:left; white-space:nowrap;
+      border-bottom:1px solid var(--border);
+    }
+    .sec-table td { padding:0.45rem 0.75rem; border-bottom:1px solid var(--bg3); white-space:nowrap; }
+    .sec-table tr:last-child td { border-bottom:none; }
+    .sec-table tr:hover td { background:var(--bg3); }
+
+    .rank  { color:var(--dim); width:28px; }
+    .sym   { font-weight:700; color:var(--blue); }
+    .name  { color:var(--muted); max-width:160px; overflow:hidden; text-overflow:ellipsis; }
+    .pos   { color:var(--green); font-weight:600; }
+    .neg   { color:var(--red);   font-weight:600; }
+    .neut  { color:var(--muted); }
+    .price { font-weight:600; }
+
+    /* ── sector bar ── */
+    .sector-row { display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.75rem;
+                  border-bottom:1px solid var(--bg3); }
+    .sector-row:last-child { border-bottom:none; }
+    .sector-row:hover { background:var(--bg3); }
+    .sector-name { font-size:0.82rem; font-weight:600; min-width:80px; }
+    .sector-bar-wrap { flex:1; background:var(--bg3); border-radius:3px; height:6px; overflow:hidden; }
+    .sector-bar { height:100%; border-radius:3px; transition:width 0.4s; }
+    .sector-pct  { font-size:0.8rem; font-weight:600; min-width:55px; text-align:right; }
+
+    /* ── spinner ── */
+    .spinner { text-align:center; color:var(--muted); padding:2rem; font-size:0.85rem; }
+    .error-row td { color:var(--red); font-size:0.82rem; text-align:center; padding:1rem; }
+
+    /* ── themes ── */
+    html.theme-white {
+      --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f;
+    }
+    html.theme-lightblue {
+      --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0;
+    }
+    html.theme-lightyellow {
+      --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📊 市場總覽</h1>
+  <a href="/">← 返回投資組合</a>
+  <span class="updated" id="updatedAt"></span>
+  <!-- theme picker reuses same localStorage key -->
+</div>
+
+<div class="status-bar" id="statusBar">
+  <span class="status-item">
+    <span class="status-label">🇺🇸 NYSE</span>
+    <span id="usStatus" class="status-closed">—</span>
+    <span id="usTime"   class="status-time"></span>
+  </span>
+  <span class="status-item">
+    <span class="status-label">🇹🇼 TWSE</span>
+    <span id="twStatus" class="status-closed">—</span>
+    <span id="twTime"   class="status-time"></span>
+  </span>
+  <span class="fetch-time" id="fetchTime"></span>
+</div>
+
+<div class="market-tabs">
+  <button class="tab-btn active" data-market="US" onclick="switchMarket('US')">🇺🇸 美股</button>
+  <button class="tab-btn"        data-market="TW" onclick="switchMarket('TW')">🇹🇼 台股</button>
+</div>
+
+<div class="main" id="mainGrid">
+  <!-- filled by JS -->
+</div>
+
+<script>
+let currentMarket = "US";
+
+// Apply saved theme on load
+(function(){
+  const t = localStorage.getItem("theme") || "dark";
+  if (t !== "dark") document.documentElement.classList.add("theme-" + t);
+})();
+
+function switchMarket(m) {
+  currentMarket = m;
+  document.querySelectorAll(".tab-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.market === m));
+  loadMarket(m);
+}
+
+async function loadMarket(market) {
+  const grid = document.getElementById("mainGrid");
+  grid.innerHTML = `
+    <div class="section"><div class="spinner">⏳ 載入中…</div></div>
+    <div class="section"><div class="spinner">⏳ 載入中…</div></div>
+    <div class="section"><div class="spinner">⏳ 載入中…</div></div>
+    <div class="section"><div class="spinner">⏳ 載入中…</div></div>`;
+
+  try {
+    const res  = await fetch(`/market/data?market=${market}`);
+    const data = await res.json();
+    if (data.error) { grid.innerHTML = `<p style="color:var(--red);padding:2rem">${data.error}</p>`; return; }
+
+    // Status bar
+    const ms = data.market_status || {};
+    const statusEl = document.getElementById(market === "US" ? "usStatus" : "twStatus");
+    const timeEl   = document.getElementById(market === "US" ? "usTime"   : "twTime");
+    if (statusEl) { statusEl.textContent = ms.status || ""; statusEl.className = ms.is_open ? "status-open" : "status-closed"; }
+    if (timeEl)   timeEl.textContent = `(${ms.local_time || ""} ${ms.timezone || ""})`;
+    const fetchEl = document.getElementById("fetchTime");
+    if (fetchEl) fetchEl.textContent = `資料取得：${data.fetch_time || ""} (台灣時間)`;
+    document.getElementById("updatedAt").textContent = "";
+
+    grid.innerHTML = `
+      ${sectionGainers(data.gainers, market)}
+      ${sectionVolume(data.volume, market)}
+      ${sectionSectors(data.sectors, market)}
+      ${sectionExpert(data.expert, market, data.expert_source)}
+    `;
+  } catch(e) {
+    grid.innerHTML = `<p style="color:var(--red);padding:2rem">載入失敗：${e.message}</p>`;
+  }
+}
+
+// ── Section renderers ──────────────────────────────────────────────
+
+function chgHtml(v) {
+  if (v == null) return '<span class="neut">N/A</span>';
+  const cls = v > 0 ? "pos" : v < 0 ? "neg" : "neut";
+  return `<span class="${cls}">${v > 0 ? "+" : ""}${v}%</span>`;
+}
+
+function sectionGainers(rows, market) {
+  const label = market === "TW" ? "今日漲幅前10" : "Today Top 10 Gainers";
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">🚀 ${label}</span>
+      <span class="section-sub">${market === "TW" ? "台灣主要個股" : "US Equity"}</span>
+    </div>
+    <table class="sec-table">
+      <thead><tr><th>#</th><th>代碼</th><th>名稱</th><th>現價</th><th>漲幅</th></tr></thead>
+      <tbody>${(rows||[]).map((r,i) => `
+        <tr>
+          <td class="rank">${i+1}</td>
+          <td class="sym">${esc(r.symbol)}</td>
+          <td class="name">${esc(r.name)}</td>
+          <td class="price">${r.price_fmt || "N/A"}</td>
+          <td>${chgHtml(r.change_pct)}</td>
+        </tr>`).join("") || '<tr class="error-row"><td colspan="5">無資料</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function sectionVolume(rows, market) {
+  const label = market === "TW" ? "今日成交量前10" : "Today Top 10 Volume";
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">📊 ${label}</span>
+      <span class="section-sub">${market === "TW" ? "台灣主要個股" : "Most Active"}</span>
+    </div>
+    <table class="sec-table">
+      <thead><tr><th>#</th><th>代碼</th><th>名稱</th><th>現價</th><th>成交量</th><th>漲幅</th></tr></thead>
+      <tbody>${(rows||[]).map((r,i) => `
+        <tr>
+          <td class="rank">${i+1}</td>
+          <td class="sym">${esc(r.symbol)}</td>
+          <td class="name">${esc(r.name)}</td>
+          <td class="price">${r.price_fmt || "N/A"}</td>
+          <td style="color:var(--muted)">${r.volume_fmt || "N/A"}</td>
+          <td>${chgHtml(r.change_pct)}</td>
+        </tr>`).join("") || '<tr class="error-row"><td colspan="6">無資料</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function sectionSectors(rows, market) {
+  const label = market === "TW" ? "類股表現" : "Sector Performance";
+  const maxAbs = Math.max(...(rows||[]).map(r => Math.abs(r.change_pct||0)), 0.01);
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">🏭 ${label}</span>
+      <span class="section-sub">${market === "TW" ? "代表性個股平均" : "SPDR Sector ETFs"}</span>
+    </div>
+    <div>${(rows||[]).map(r => {
+      const pct = r.change_pct;
+      const cls = pct > 0 ? "pos" : pct < 0 ? "neg" : "neut";
+      const barW = pct != null ? Math.round(Math.abs(pct) / maxAbs * 100) : 0;
+      const barColor = pct > 0 ? "var(--green)" : pct < 0 ? "var(--red)" : "var(--dim)";
+      return `<div class="sector-row">
+        <span class="sector-name">${esc(r.name)}</span>
+        <div class="sector-bar-wrap">
+          <div class="sector-bar" style="width:${barW}%;background:${barColor}"></div>
+        </div>
+        <span class="sector-pct ${cls}">${pct != null ? (pct>0?"+":"")+pct+"%" : "N/A"}</span>
+      </div>`;
+    }).join("") || '<div style="padding:1rem;color:var(--dim)">無資料</div>'}
+    </div>
+  </div>`;
+}
+
+function sectionExpert(rows, market, source) {
+  const label = market === "TW" ? "法人推薦精選" : "Motley Fool 精選";
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-title">⭐ ${label}</span>
+      <span class="section-sub">${market === "TW" ? "強力買入評級" : "來源：Motley Fool 公開推薦股 × 分析師評級"}</span>
+    </div>
+    <table class="sec-table">
+      <thead><tr><th>#</th><th>代碼</th><th>名稱</th><th>現價</th>
+        <th>${market === "TW" ? "潛在漲幅" : "漲幅"}</th>
+        <th>${market === "TW" ? "分析師" : "市值"}</th></tr></thead>
+      <tbody>${(rows||[]).map((r,i) => `
+        <tr>
+          <td class="rank">${i+1}</td>
+          <td class="sym">${esc(r.symbol)}</td>
+          <td class="name">${esc(r.name)}</td>
+          <td class="price">${r.price_fmt || "N/A"}</td>
+          <td>${market === "TW"
+            ? (r.upside_pct != null ? chgHtml(r.upside_pct) : "N/A")
+            : chgHtml(r.change_pct)}</td>
+          <td style="color:var(--muted)">${market === "TW"
+            ? (r.n_analysts ? r.n_analysts+"人" : "N/A")
+            : (r.market_cap || "N/A")}</td>
+        </tr>`).join("") || '<tr class="error-row"><td colspan="6">無資料</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Init
+loadMarket("US");
+</script>
+</body>
+</html>

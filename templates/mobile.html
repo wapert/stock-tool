@@ -505,6 +505,12 @@
   <button class="bottom-btn" onclick="exportCSV()">
     <span class="ico">⬇</span>匯出
   </button>
+  <a class="bottom-btn" href="/market" style="text-decoration:none;color:inherit;">
+    <span class="ico">📊</span>市場
+  </a>
+  <a class="bottom-btn" href="/options" style="text-decoration:none;color:inherit;">
+    <span class="ico">📋</span>選擇權
+  </a>
   <a class="bottom-btn" href="/desktop" style="text-decoration:none;color:inherit;">
     <span class="ico">🖥</span>桌面版
   </a>
@@ -840,6 +846,9 @@ function renderCards(results) {
 
         <div class="card-price">
           <span class="price-now">${r.current_price_fmt}</span>
+          <span style="font-size:.85rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.day_chg_pct>=0?'#3fb950':'#f85149'};">
+            ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
+          </span>
           <span class="price-target ${upCls}">${r.target_price_fmt} ${upTxt}</span>
         </div>
 
@@ -872,6 +881,44 @@ function renderCards(results) {
             <div class="metric"><span class="metric-label">營收YoY</span><span class="metric-val ${(r.rev_growth||0)>=0?"pos":"neg"}">${r.rev_growth_fmt}</span></div>
             <div class="metric"><span class="metric-label">分析師/買入</span><span class="metric-val ${buyCls(r.buy_pct)}">${r.analyst_fmt}</span></div>
           </div>
+          <div class="extra-grid" style="margin-top:1px;">
+            <div class="metric">
+              <span class="metric-label">布林%B</span>
+              <span class="metric-val ${bbCls(r.bb_bullish)}">${r.bb_pct_fmt}</span>
+              <span style="font-size:0.65rem;color:var(--dim);">${r.bb_label||""}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">帶寬</span>
+              <span class="metric-val ${r.bb_bw<0.08?"rsi-hot":"rsi-norm"}">${r.bb_bw_fmt}</span>
+              <span style="font-size:0.65rem;color:var(--dim);">${r.bb_bw_label||""}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">EMA</span>
+              <span class="metric-val ${bbCls(r.ema_bullish)}" style="font-size:0.72rem;">${r.ema_signal||"N/A"}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">量比</span>
+              <span class="metric-val ${r.vol_ratio>=1.5?"pos":r.vol_ratio>=1.2?"":"na"}">${r.vol_ratio_fmt}</span>
+            </div>
+          </div>
+          <div class="extra-grid" style="margin-top:1px;">
+            <div class="metric">
+              <span class="metric-label">FCF率</span>
+              <span class="metric-val ${(r.fcf_margin||0)>=15?"pos":(r.fcf_margin||0)>=0?"":"neg"}">${r.fcf_margin_fmt}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">毛利率</span>
+              <span class="metric-val ${(r.gross_margin||0)>=0.4?"pos":(r.gross_margin||0)>=0.2?"":"neg"}">${r.gross_margin_fmt}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">ROE</span>
+              <span class="metric-val ${(r.roe||0)>=0.15?"pos":(r.roe||0)>=0.05?"":"neg"}">${r.roe_fmt}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">D/E</span>
+              <span class="metric-val ${(r.debt_equity||99)<=0.5?"pos":(r.debt_equity||99)<=1.5?"":"neg"}">${r.debt_equity_fmt}</span>
+            </div>
+          </div>
         </div>
       </div>`;
   }).join("");
@@ -900,6 +947,7 @@ function recClass(r) {
 }
 function pegCls(v) { if (!v) return "na"; return v<=1.5?"pos":(v<=3?"":"neg"); }
 function buyCls(v) { if (v==null) return "na"; return v>=70?"pos":(v>=50?"":"neg"); }
+function bbCls(b)  { return b===true?"pos":b===false?"neg":"na"; }
 function esc(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;");

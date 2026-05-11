@@ -29,6 +29,69 @@ def _fmt_price(price, currency: str) -> str:
     return f"${price:,.2f}"
 
 
+def calculate_bollinger(prices, period=20, std_dev=2):
+    """Returns (bb_pct, bb_bw, label, bw_label, is_bullish)."""
+    sma = prices.rolling(window=period).mean()
+    std = prices.rolling(window=period).std()
+    upper = sma + std_dev * std
+    lower = sma - std_dev * std
+
+    p = float(prices.iloc[-1])
+    u = float(upper.iloc[-1])
+    l = float(lower.iloc[-1])
+    m = float(sma.iloc[-1])
+
+    bb_pct = round((p - l) / (u - l), 3) if (u - l) > 0 else 0.5
+    bb_bw  = round((u - l) / m, 3)       if m > 0       else 0.0
+
+    if bb_pct > 1.0:    label, bull = "突破上軌 ↑", True
+    elif bb_pct > 0.8:  label, bull = "近上軌",     True
+    elif bb_pct >= 0.4: label, bull = "中性",       None
+    elif bb_pct >= 0.2: label, bull = "近下軌",     False
+    elif bb_pct >= 0:   label, bull = "接近超賣",   False
+    else:               label, bull = "突破下軌 ↓", False
+
+    if bb_bw < 0.08:    bw_label = "⚡ 收縮"
+    elif bb_bw < 0.15:  bw_label = "低波動"
+    elif bb_bw < 0.25:  bw_label = "正常"
+    else:               bw_label = "高波動"
+
+    return bb_pct, bb_bw, label, bw_label, bull
+
+
+def calculate_ema_signal(prices):
+    """Returns (signal_label, is_bullish, ema20, ema50)."""
+    ema20 = prices.ewm(span=20, adjust=False).mean()
+    ema50 = prices.ewm(span=50, adjust=False).mean()
+
+    p   = float(prices.iloc[-1])
+    e20 = float(ema20.iloc[-1])
+    e50 = float(ema50.iloc[-1])
+    # look back 3 bars to detect fresh crossover
+    pe20 = float(ema20.iloc[-4]) if len(ema20) >= 4 else e20
+    pe50 = float(ema50.iloc[-4]) if len(ema50) >= 4 else e50
+
+    golden = e20 > e50 and pe20 <= pe50
+    death  = e20 < e50 and pe20 >= pe50
+
+    if golden:               return "⭐ 黃金交叉", True,  e20, e50
+    if death:                return "💀 死亡交叉", False, e20, e50
+    if p > e20 and e20 > e50:return "強勢多頭 ↑",  True,  e20, e50
+    if p > e50 and e20 > e50:return "多頭回檔",    True,  e20, e50
+    if p < e20 and e20 < e50:return "空頭排列 ↓",  False, e20, e50
+    if e20 > e50:            return "多頭整理",    None,  e20, e50
+    return                          "趨勢整理",    None,  e20, e50
+
+
+def calculate_volume_ratio(volumes):
+    """Latest volume vs 20-day average. Returns float or None."""
+    if len(volumes) < 22:
+        return None
+    avg = float(volumes.iloc[-22:-2].mean())
+    cur = float(volumes.iloc[-1])
+    return round(cur / avg, 2) if avg > 0 else None
+
+
 def calculate_rsi(prices, period=14):
     delta = prices.diff()
     gain = delta.where(delta > 0, 0).rolling(window=period).mean()
@@ -238,7 +301,9 @@ def analyze_stock(symbol: str) -> dict:
             return {"symbol": symbol,
                     "error": f"無法取得「{symbol}」的報價資料。"}
 
-        currency = info.get("currency", "USD")
+        currency    = info.get("currency", "USD")
+        day_change  = info.get("regularMarketChange")
+        day_chg_pct = info.get("regularMarketChangePercent")
 
         target_price = info.get("targetMeanPrice")
         forward_pe   = info.get("forwardPE")
@@ -256,11 +321,41 @@ def analyze_stock(symbol: str) -> dict:
             if week52_high else None
         )
 
-        hist = ticker.history(period="6mo")
-        rsi = calculate_rsi(hist["Close"]) if len(hist) >= 15 else None
+        hist = ticker.history(period="1y")
+        closes  = hist["Close"]
+        volumes = hist["Volume"]
+
+        rsi = calculate_rsi(closes) if len(closes) >= 15 else None
         macd_label, macd_bullish = (None, None)
-        if len(hist) >= 35:
-            macd_label, macd_bullish = calculate_macd(hist["Close"])
+        if len(closes) >= 35:
+            macd_label, macd_bullish = calculate_macd(closes)
+
+        # Bollinger Bands
+        bb_pct, bb_bw, bb_label, bb_bw_label, bb_bullish = (
+            calculate_bollinger(closes) if len(closes) >= 20
+            else (None, None, "N/A", "N/A", None)
+        )
+
+        # EMA 20/50
+        ema_sig, ema_bullish, ema20_val, ema50_val = (
+            calculate_ema_signal(closes) if len(closes) >= 50
+            else ("N/A", None, None, None)
+        )
+
+        # Volume vs 20D avg
+        vol_ratio = calculate_volume_ratio(volumes)
+
+        # Fundamentals
+        gross_margin    = info.get("grossMargins")
+        roe             = info.get("returnOnEquity")
+        de_raw          = info.get("debtToEquity")        # yf returns as %, e.g. 172 = 1.72
+        debt_equity     = round(de_raw / 100, 2) if de_raw is not None else None
+        fcf             = info.get("freeCashflow")
+        total_revenue   = info.get("totalRevenue")
+        fcf_margin      = (
+            round(fcf / total_revenue * 100, 1)
+            if fcf and total_revenue and total_revenue > 0 else None
+        )
 
         rec_key = info.get("recommendationKey", "")
         upside_pct = (
@@ -296,6 +391,17 @@ def analyze_stock(symbol: str) -> dict:
             "currency": currency,
             "company_name": company_name,
             "current_price_fmt": _fmt_price(current_price, currency),
+            "day_change":     round(day_change, 2)  if day_change  is not None else None,
+            "day_chg_pct":    round(day_chg_pct, 2) if day_chg_pct is not None else None,
+            "day_change_fmt": (
+                f"{'+'if day_change>=0 else '-'}"
+                f"{'NT$' if currency=='TWD' else '$'}"
+                f"{abs(day_change):,.{'0' if currency=='TWD' else '2'}f}"
+            ) if day_change is not None else None,
+            "day_chg_pct_fmt": (
+                f"{'+' if day_chg_pct >= 0 else ''}{day_chg_pct:.2f}%"
+                if day_chg_pct is not None else None
+            ),
             "target_price": target_price,
             "target_price_fmt": _fmt_price(target_price, currency) if target_price else "N/A",
             "forward_pe_fmt": f"{forward_pe:.0f}x" if forward_pe else "N/A",
@@ -326,6 +432,32 @@ def analyze_stock(symbol: str) -> dict:
                 if n_analysts and buy_pct is not None else
                 (f"{int(n_analysts)}人" if n_analysts else "N/A")
             ),
+            # ── new indicators ──────────────────────────────────
+            # Bollinger Bands
+            "bb_pct":      bb_pct,
+            "bb_pct_fmt":  f"{bb_pct:.2f}" if bb_pct is not None else "N/A",
+            "bb_bw":       bb_bw,
+            "bb_bw_fmt":   f"{bb_bw:.2f}"  if bb_bw  is not None else "N/A",
+            "bb_label":    bb_label,
+            "bb_bw_label": bb_bw_label,
+            "bb_bullish":  bb_bullish,
+            # EMA 20/50
+            "ema_signal":  ema_sig,
+            "ema_bullish": ema_bullish,
+            "ema20_fmt":   _fmt_price(ema20_val, currency) if ema20_val else "N/A",
+            "ema50_fmt":   _fmt_price(ema50_val, currency) if ema50_val else "N/A",
+            # Volume ratio
+            "vol_ratio":     vol_ratio,
+            "vol_ratio_fmt": f"{vol_ratio:.1f}x" if vol_ratio is not None else "N/A",
+            # Fundamentals
+            "fcf_margin":       fcf_margin,
+            "fcf_margin_fmt":   f"{fcf_margin:+.1f}%" if fcf_margin is not None else "N/A",
+            "gross_margin":     gross_margin,
+            "gross_margin_fmt": f"{gross_margin*100:.1f}%" if gross_margin else "N/A",
+            "roe":              roe,
+            "roe_fmt":          f"{roe*100:.1f}%" if roe else "N/A",
+            "debt_equity":      debt_equity,
+            "debt_equity_fmt":  f"{debt_equity:.2f}" if debt_equity is not None else "N/A",
         }
 
     except Exception as e:

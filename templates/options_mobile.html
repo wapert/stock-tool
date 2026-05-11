@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#161b22"/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <title>選擇權</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149;
+      --yellow:#e3b341; --orange:#f0883e; --purple:#d2a8ff;
+      --topbar-h:50px; --bottombar-h:50px;
+    }
+    html,body { height:100%; overflow:hidden; }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC",sans-serif;
+           background:var(--bg); color:var(--text);
+           display:flex; flex-direction:column;
+           -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+    .topbar { height:var(--topbar-h); display:flex; align-items:center; gap:.5rem;
+              padding:0 1rem; background:var(--bg2); border-bottom:1px solid var(--border);
+              flex-shrink:0; }
+    .topbar h1 { font-size:.95rem; font-weight:700; color:var(--blue); flex:1; }
+    .back-btn  { color:var(--muted); font-size:.8rem; text-decoration:none;
+                 padding:.25rem .6rem; border:1px solid var(--border); border-radius:6px; }
+
+    /* search bar */
+    .search-bar { display:flex; gap:.5rem; padding:.6rem .75rem;
+                  background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0; }
+    .search-bar input { flex:1; padding:.45rem .75rem; border-radius:6px;
+                        border:1px solid var(--border); background:var(--bg3);
+                        color:var(--text); font-size:16px; outline:none; }
+    .search-bar input:focus { border-color:var(--blue); }
+    .btn { padding:.42rem .85rem; border-radius:6px; border:none; font-size:.82rem;
+           font-weight:600; cursor:pointer; white-space:nowrap; }
+    .btn-green { background:#238636; color:#fff; }
+    .btn-ghost { background:var(--bg3); color:var(--muted); border:1px solid var(--border); }
+
+    /* scroll */
+    .main { flex:1; overflow-y:auto; padding:.6rem;
+            padding-bottom:calc(var(--bottombar-h)+.6rem);
+            -webkit-overflow-scrolling:touch; }
+
+    /* option card */
+    .opt-card { background:var(--bg2); border:1px solid var(--border);
+                border-radius:10px; margin-bottom:.6rem; overflow:hidden; }
+    .card-top { display:flex; align-items:center; gap:.5rem;
+                padding:.6rem .75rem; border-bottom:1px solid var(--border); }
+    .sym  { font-weight:700; color:var(--blue); font-size:.9rem; }
+    .name { font-size:.72rem; color:var(--muted); flex:1;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .price-block { text-align:right; }
+    .price-val { font-size:.95rem; font-weight:700; }
+    .chg-val   { font-size:.75rem; font-weight:600; }
+    .pos { color:var(--green); } .neg { color:var(--red); }
+
+    .card-grid { display:grid; grid-template-columns:repeat(3,1fr);
+                 gap:1px; background:var(--border); }
+    .cg-item { background:var(--bg2); padding:.4rem .5rem;
+               display:flex; flex-direction:column; align-items:center; gap:.1rem; }
+    .cg-label { font-size:.62rem; color:var(--dim); text-transform:uppercase;
+                letter-spacing:.04em; }
+    .cg-val   { font-size:.82rem; font-weight:600; }
+    .purple   { color:var(--purple); }
+    .orange   { color:var(--orange); }
+    .na       { color:var(--dim); }
+
+    /* P/C bar */
+    .pc-bar-wrap { padding:.4rem .75rem .5rem; }
+    .pc-bar-label{ display:flex; justify-content:space-between;
+                   font-size:.72rem; margin-bottom:.25rem; }
+    .pc-bar { display:flex; height:6px; border-radius:3px; overflow:hidden; }
+    .pc-put  { background:var(--red); }
+    .pc-call { background:var(--green); }
+    .pc-ratio-row{ display:flex; justify-content:space-between; align-items:center;
+                   padding:.35rem .75rem; border-top:1px solid var(--border); }
+    .pc-label { font-size:.72rem; color:var(--dim); }
+    .pc-val   { font-size:.85rem; font-weight:700; }
+
+    /* ivr chip */
+    .ivr-chip { padding:.1rem .4rem; border-radius:4px; font-size:.78rem; font-weight:700; }
+    .ivr-hi  { background:#3d1515; color:var(--red); }
+    .ivr-mid { background:#2d1f0e; color:var(--orange); }
+    .ivr-lo  { background:#0d2a1a; color:var(--green); }
+
+    .error-card { background:var(--bg2); border:1px solid #3d1515;
+                  border-radius:10px; padding:.75rem; margin-bottom:.6rem;
+                  color:var(--red); font-size:.82rem; }
+
+    /* bottom bar */
+    .bottombar { height:var(--bottombar-h); background:var(--bg2);
+                 border-top:1px solid var(--border); display:flex;
+                 align-items:center; justify-content:center; flex-shrink:0; }
+    .note { font-size:.68rem; color:var(--dim); text-align:center; padding:0 .5rem; }
+
+    /* spinner */
+    .spinner { text-align:center; color:var(--muted); padding:2rem; font-size:.85rem; }
+
+    /* themes */
+    html.theme-white {
+      --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f;
+    }
+    html.theme-lightblue {
+      --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0;
+    }
+    html.theme-lightyellow {
+      --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📋 選擇權</h1>
+  <a class="back-btn" href="/m">← 返回</a>
+</div>
+
+<div class="search-bar">
+  <input id="symInput" type="text" placeholder="AAPL NVDA TSLA…" autocomplete="off"
+         onkeydown="if(event.key==='Enter') loadOptions()"/>
+  <button class="btn btn-green" onclick="loadOptions()">查詢</button>
+  <button class="btn btn-ghost" onclick="loadDefaults()">預設</button>
+  <button class="btn btn-ghost" onclick="toggleGuide()">💡</button>
+</div>
+
+<!-- guide card -->
+<div id="guideCard" style="display:none; background:var(--bg2); border-bottom:1px solid var(--border); padding:.75rem 1rem; font-size:.78rem; line-height:1.7;">
+  <b style="color:var(--blue);">ATM IV</b> — 選擇權隱含波動率，代表市場預期的波動幅度。<br/>
+  <b style="color:var(--blue);">IV Rank</b> — <span style="color:var(--green);">&lt;30 偏低→買權</span> ｜ <span style="color:var(--red);">&gt;70 偏高→賣權</span><br/>
+  <b style="color:var(--yellow);">預期波動 ±1σ</b> — 到期日前 <b>68% 機率</b> 的股價波動區間。<br/>
+  &nbsp;&nbsp;公式：股價 × IV × √(天數/365)<br/>
+  <b style="color:var(--blue);">P/C &gt;1.2</b> <span style="color:var(--red);">偏空</span> ｜ <b>P/C &lt;0.8</b> <span style="color:var(--green);">偏多</span>
+</div>
+
+<div class="main" id="main">
+  <div class="spinner">⏳ 載入中…</div>
+</div>
+
+<div class="bottombar">
+  <span class="note">IV Rank / Pctl 以HV近似 · 資料延遲約15分鐘</span>
+</div>
+
+<script>
+(function(){
+  const t = localStorage.getItem("theme") || "dark";
+  if (t !== "dark") document.documentElement.classList.add("theme-"+t);
+})();
+
+function ivrClass(v) {
+  if (v == null) return "na";
+  if (v > 70) return "ivr-chip ivr-hi";
+  if (v > 40) return "ivr-chip ivr-mid";
+  return "ivr-chip ivr-lo";
+}
+function pcClass(v) {
+  if (v == null) return "na";
+  return v > 1.2 ? "neg" : v < 0.8 ? "pos" : "na";
+}
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function renderCard(r) {
+  if (r.error) return `<div class="error-card"><b>${esc(r.symbol)}</b>：${esc(r.error)}</div>`;
+
+  const chgCls = r.change  >= 0 ? "pos" : "neg";
+  const pctCls = r.chg_pct >= 0 ? "pos" : "neg";
+  const putW   = r.put_pct  || 0;
+  const callW  = r.call_pct || 0;
+
+  return `<div class="opt-card">
+    <div class="card-top">
+      <span class="sym">${esc(r.symbol)}</span>
+      <span class="name">${esc(r.name)}</span>
+      <div class="price-block">
+        <div class="price-val">${r.price_fmt}</div>
+        <div class="chg-val ${chgCls}">${r.change_fmt} (${r.chg_pct >= 0 ? "+" : ""}${r.chg_pct}%)</div>
+      </div>
+    </div>
+    <div class="card-grid">
+      <div class="cg-item">
+        <span class="cg-label">ATM IV</span>
+        <span class="cg-val purple">${r.atm_iv_fmt}</span>
+      </div>
+      <div class="cg-item">
+        <span class="cg-label">IV Rank</span>
+        <span class="cg-val">
+          ${r.iv_rank != null ? `<span class="${ivrClass(r.iv_rank)}">${r.iv_rank_fmt}</span>` : `<span class="na">N/A</span>`}
+        </span>
+      </div>
+      <div class="cg-item">
+        <span class="cg-label">IV Pctl</span>
+        <span class="cg-val">${r.iv_pctl_fmt !== "N/A" ? r.iv_pctl_fmt : `<span class="na">N/A</span>`}</span>
+      </div>
+      <div class="cg-item">
+        <span class="cg-label">Opt Vol</span>
+        <span class="cg-val">${r.options_vol_fmt}</span>
+      </div>
+      <div class="cg-item">
+        <span class="cg-label">% Put</span>
+        <span class="cg-val neg">${r.put_pct != null ? r.put_pct+"%" : "—"}</span>
+      </div>
+      <div class="cg-item">
+        <span class="cg-label">% Call</span>
+        <span class="cg-val pos">${r.call_pct != null ? r.call_pct+"%" : "—"}</span>
+      </div>
+    </div>
+    <div class="pc-bar-wrap">
+      <div class="pc-bar-label">
+        <span class="neg">Put ${r.put_pct || 0}%</span>
+        <span class="pos">Call ${r.call_pct || 0}%</span>
+      </div>
+      <div class="pc-bar">
+        <div class="pc-put"  style="width:${putW}%"></div>
+        <div class="pc-call" style="width:${callW}%"></div>
+      </div>
+    </div>
+    <div class="pc-ratio-row">
+      <span class="pc-label">P/C Vol Ratio</span>
+      <span class="pc-val ${pcClass(r.pc_ratio)}">${r.pc_ratio_fmt}</span>
+      <span style="font-size:.7rem;color:var(--dim)">${r.fetched_at || ""}</span>
+    </div>
+    <div style="padding:.4rem .75rem .55rem; border-top:1px solid var(--border); display:flex; align-items:baseline; gap:.5rem; flex-wrap:wrap;">
+      <span style="font-size:.72rem;color:var(--dim);">預期波動 ±1σ</span>
+      <span style="font-weight:700;color:var(--yellow);">${r.exp_to_exp_fmt || "N/A"}</span>
+      <span style="font-size:.7rem;color:var(--dim);">至 ${(r.nearest_exp||"").slice(5)} (${r.days_to_exp||"?"}d) | 每日 ${r.exp_daily_fmt||"N/A"}</span>
+    </div>
+  </div>`;
+}
+
+async function fetchAndRender(url) {
+  document.getElementById("main").innerHTML = `<div class="spinner">⏳ 載入中…</div>`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    const rows = data.results || [data];
+    document.getElementById("main").innerHTML = rows.map(renderCard).join("");
+  } catch(e) {
+    document.getElementById("main").innerHTML =
+      `<div class="error-card">載入失敗：${e.message}</div>`;
+  }
+}
+
+function loadOptions() {
+  const raw = document.getElementById("symInput").value.trim();
+  if (!raw) { loadDefaults(); return; }
+  fetchAndRender(`/options/data?symbols=${encodeURIComponent(raw)}`);
+}
+function loadDefaults() {
+  document.getElementById("symInput").value = "";
+  fetchAndRender("/options/data");
+}
+function toggleGuide() {
+  const g = document.getElementById("guideCard");
+  g.style.display = g.style.display === "none" ? "block" : "none";
+}
+
+loadDefaults();
+</script>
+</body>
+</html>

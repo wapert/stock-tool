@@ -2,8 +2,13 @@ import json
 import os
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, jsonify
 from stock_data import analyze_stock
+from market_data  import get_market_overview
+from options_data import get_options_stats, get_options_watchlist, get_dynamic_watchlist
+
+TW_TZ = ZoneInfo("Asia/Taipei")
 
 _TW_SYM = re.compile(r'^\d{4,6}[A-Za-z]{0,2}(\.TW[O]?)?$', re.IGNORECASE)
 
@@ -69,6 +74,42 @@ def mobile():
 @app.route("/desktop")
 def desktop():
     return render_template("index.html")
+
+@app.route("/market")
+def market_page():
+    if _is_mobile():
+        return render_template("market_mobile.html")
+    return render_template("market.html")
+
+@app.route("/options")
+def options_page():
+    if _is_mobile():
+        return render_template("options_mobile.html")
+    return render_template("options.html")
+
+@app.route("/options/data")
+def options_data_api():
+    raw     = request.args.get("symbols", "").strip()
+    symbols = [s.strip().upper() for s in raw.replace(",", " ").split() if s.strip()]
+    if not symbols:
+        symbols = get_dynamic_watchlist(30)
+    symbols = symbols[:30]
+    results = get_options_watchlist(symbols)
+    return jsonify({"results": results, "count": len(results)})
+
+@app.route("/options/single")
+def options_single():
+    sym = request.args.get("symbol", "").strip().upper()
+    if not sym:
+        return jsonify({"error": "symbol required"}), 400
+    return jsonify(get_options_stats(sym))
+
+@app.route("/market/data")
+def market_data_api():
+    market = request.args.get("market", "US").upper()
+    if market not in ("US", "TW"):
+        return jsonify({"error": "market must be US or TW"}), 400
+    return jsonify(get_market_overview(market))
 
 
 # ── ad-hoc stock lookup ───────────────────────────────────────────────────────
@@ -170,7 +211,7 @@ def sync_profile(name):
     if not stocks:
         return jsonify({"error": "此投資組合沒有股票，請先加入股票"}), 400
     results = sort_results([analyze_stock(s) for s in stocks])
-    profiles[name]["last_sync"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    profiles[name]["last_sync"] = datetime.now(TW_TZ).strftime("%Y-%m-%d %H:%M")
     profiles[name]["cache"] = results
     save_profiles(profiles)
     return jsonify({"results": results, "last_sync": profiles[name]["last_sync"]})
