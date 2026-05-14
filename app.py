@@ -3,6 +3,7 @@ import os
 import re
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, request, jsonify
@@ -150,13 +151,28 @@ def options_data_api():
     raw     = request.args.get("symbols", "").strip()
     symbols = [s.strip().upper() for s in raw.replace(",", " ").split() if s.strip()]
     if not symbols:
-        symbols = get_dynamic_watchlist(30)
-    symbols = symbols[:30]
+        symbols = get_dynamic_watchlist(15)
+    symbols = symbols[:15]
     _cache.purge_expired()   # lazy cleanup on each options request
-    results = [
-        _cache.get_or_fetch(f"opts:{s}", lambda s=s: get_options_stats(s), TTL_OPTIONS)
-        for s in symbols
-    ]
+    # Split into cache hits (instant) and misses (need parallel fetch)
+    hits, misses = {}, []
+    for s in symbols:
+        cached = _cache.get(f"opts:{s}")
+        if cached is not None:
+            hits[s] = cached
+        else:
+            misses.append(s)
+
+    # Parallel-fetch all cache misses at once, then store
+    if misses:
+        fresh = get_options_watchlist(misses)
+        for r in fresh:
+            sym = r.get("symbol", "")
+            if sym and not r.get("error"):
+                _cache.set(f"opts:{sym}", r, TTL_OPTIONS)
+            hits[sym] = r
+
+    results = [hits.get(s, {"symbol": s, "error": "fetch failed"}) for s in symbols]
     return jsonify({"results": results, "count": len(results)})
 
 @app.route("/options/single")
@@ -194,9 +210,12 @@ def analyze():
     def _fetch(sym):
         is_tw = bool(_TW_SYM.match(sym))
         ttl   = TTL_TW_STOCK if is_tw else TTL_US_STOCK
-        return _cache.get_or_fetch(f"stock:{sym}", lambda: analyze_stock(sym), ttl)
+        return _cache.get_or_fetch(f"stock:{sym}", lambda s=sym: analyze_stock(s), ttl)
 
-    results = sort_results([_fetch(s) for s in symbols[:10]])
+    syms = symbols[:10]
+    with ThreadPoolExecutor(max_workers=min(8, len(syms))) as ex:
+        raw = list(ex.map(_fetch, syms))
+    results = sort_results(raw)
     return jsonify({"results": results})
 
 
@@ -285,10 +304,22 @@ def sync_profile(name):
     stocks = profiles[name].get("stocks", [])
     if not stocks:
         return jsonify({"error": "此投資組合沒有股票，請先加入股票"}), 400
-    # Bust stock cache for each symbol so fresh data is fetched
+    # Bust cache so each worker fetches fresh data
     for s in stocks:
         _cache.delete(f"stock:{s.upper()}")
-    results = sort_results([analyze_stock(s) for s in stocks])
+
+    # Parallel fetch — 8 workers; ~8× faster than sequential
+    def _fetch_one(sym):
+        is_tw = bool(_TW_SYM.match(sym.upper()))
+        ttl   = TTL_TW_STOCK if is_tw else TTL_US_STOCK
+        return _cache.get_or_fetch(
+            f"stock:{sym.upper()}", lambda s=sym: analyze_stock(s), ttl
+        )
+
+    max_w   = min(8, len(stocks))
+    with ThreadPoolExecutor(max_workers=max_w) as ex:
+        raw = list(ex.map(_fetch_one, stocks))
+    results = sort_results(raw)
     profiles[name]["last_sync"] = datetime.now(TW_TZ).strftime("%Y-%m-%d %H:%M")
     profiles[name]["cache"] = results
     save_profiles(profiles)
@@ -297,8 +328,12 @@ def sync_profile(name):
 
 @app.route("/cache/stats")
 def cache_stats():
+    from stock_data import _hist_cache
     purged = _cache.purge_expired()
-    return jsonify({**_cache.stats(), "just_purged": purged})
+    return jsonify({
+        "result_cache":  {**_cache.stats(), "just_purged": purged},
+        "history_cache": _hist_cache.stats(),
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))

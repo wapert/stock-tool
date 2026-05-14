@@ -6,6 +6,8 @@ IV Rank / IV Percentile: calculated from 252-day historical realized volatility
 (true IV Rank requires paid data; HV-based is the standard free approximation)
 """
 import requests
+import time
+import threading
 import numpy as np
 import yfinance as yf
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -13,6 +15,69 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 _NY_TZ = ZoneInfo("America/New_York")
+
+# ── Shared history cache (re-use stock_data's 2h cache if available) ─────────
+try:
+    from stock_data import _hist_cache as _opt_hist_cache
+except ImportError:
+    class _FallbackCache:
+        TTL = 2 * 3600
+        def __init__(self): self._s = {}; self._l = threading.Lock()
+        def get(self, k):
+            with self._l:
+                e = self._s.get(k)
+                return e["data"] if e and time.time()-e["ts"] < self.TTL else None
+        def set(self, k, d):
+            with self._l: self._s[k] = {"data": d, "ts": time.time()}
+    _opt_hist_cache = _FallbackCache()
+
+# ── Options chain cache (5-min TTL) ──────────────────────────────────────────
+# Chains don't change second-by-second; caching avoids re-download on auto-sync
+class _ChainCache:
+    TTL = 5 * 60   # 5 minutes
+
+    def __init__(self):
+        self._s = {}
+        self._l = threading.Lock()
+
+    def get(self, key):
+        with self._l:
+            e = self._s.get(key)
+            return e["data"] if e and time.time() - e["ts"] < self.TTL else None
+
+    def set(self, key, data):
+        with self._l:
+            self._s[key] = {"data": data, "ts": time.time()}
+
+_chain_cache = _ChainCache()
+
+# ── Company name cache (24h TTL) ──────────────────────────────────────────────
+# ticker.info is the slowest yfinance call; names don't change daily
+class _NameCache:
+    TTL = 24 * 3600
+
+    def __init__(self):
+        self._s = {}
+        self._l = threading.Lock()
+
+    def get(self, sym):
+        with self._l:
+            e = self._s.get(sym)
+            return e["name"] if e and time.time() - e["ts"] < self.TTL else None
+
+    def set(self, sym, name):
+        with self._l:
+            self._s[sym] = {"name": name, "ts": time.time()}
+
+    def bulk_set(self, mapping: dict):
+        """Pre-populate from screener results {sym: name}."""
+        with self._l:
+            ts = time.time()
+            for sym, name in mapping.items():
+                if sym not in self._s:   # don't overwrite fresher entries
+                    self._s[sym] = {"name": name, "ts": ts}
+
+_name_cache = _NameCache()
 _YAHOO_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -43,6 +108,11 @@ def get_dynamic_watchlist(count: int = 30) -> list:
         quotes = r.json()["finance"]["result"][0]["quotes"]
         syms = [q["symbol"] for q in quotes if q.get("symbol")]
         if len(syms) >= 10:
+            # Pre-warm name cache — names arrive free with screener
+            _name_cache.bulk_set({
+                q["symbol"]: q.get("shortName") or q.get("longName", q["symbol"])
+                for q in quotes if q.get("symbol")
+            })
             return syms[:count]
     except Exception:
         pass
@@ -89,11 +159,11 @@ def get_options_stats(symbol: str) -> dict:
         ticker = yf.Ticker(sym)
 
         # ── price info ────────────────────────────────────────────
-        info  = ticker.info or {}
-        name  = info.get("shortName", sym)
+        # Name: 24h cache avoids expensive ticker.info call on repeat requests
+        name = _name_cache.get(sym)
         price_source = "Yahoo"
 
-        # Try Alpaca for real-time price/change first
+        # Try Alpaca for real-time price first (skips ticker.info entirely when it works)
         snap = {}
         try:
             from alpaca_data import get_us_snapshot_single
@@ -106,10 +176,24 @@ def get_options_stats(symbol: str) -> dict:
             change   = snap.get("change") or 0
             chg_pct  = snap.get("change_pct") or 0
             price_source = "Alpaca"
+            # Fetch name from info only if not cached
+            if name is None:
+                try:
+                    info = ticker.info or {}
+                    name = info.get("shortName", sym)
+                    _name_cache.set(sym, name)
+                except Exception:
+                    name = sym
         else:
-            price    = info.get("currentPrice") or info.get("regularMarketPrice")
-            change   = info.get("regularMarketChange", 0) or 0
-            chg_pct  = info.get("regularMarketChangePercent", 0) or 0
+            # Alpaca unavailable — use ticker.info for both price and name
+            info  = ticker.info or {}
+            name  = info.get("shortName", sym)
+            _name_cache.set(sym, name)
+            price = info.get("currentPrice") or info.get("regularMarketPrice")
+            change  = info.get("regularMarketChange", 0) or 0
+            chg_pct = info.get("regularMarketChangePercent", 0) or 0
+
+        name = name or sym
 
         if not price:
             return {"symbol": sym, "error": "無報價資料"}
@@ -119,15 +203,19 @@ def get_options_stats(symbol: str) -> dict:
         if not exps:
             return {"symbol": sym, "error": "無選擇權資料"}
 
-        # Aggregate put/call vol from front 2 expirations
+        # Aggregate put/call vol — use chain cache to skip re-download
         total_call_vol = 0
         total_put_vol  = 0
         atm_iv = None
-        nearest_exp_str = exps[0]   # e.g. "2026-05-16"
+        nearest_exp_str = exps[0]
 
         for exp in exps[:2]:
             try:
-                chain = ticker.option_chain(exp)
+                cache_key = f"{sym}:{exp}"
+                chain = _chain_cache.get(cache_key)
+                if chain is None:
+                    chain = ticker.option_chain(exp)
+                    _chain_cache.set(cache_key, chain)
                 calls = chain.calls.fillna(0)
                 puts  = chain.puts.fillna(0)
                 total_call_vol += int(calls["volume"].sum())
@@ -161,7 +249,11 @@ def get_options_stats(symbol: str) -> dict:
         pc_ratio = round(total_put_vol  / total_call_vol, 2)  if total_call_vol else None
 
         # ── IV Rank / Pctl from historical realized vol ───────────
-        hist = ticker.history(period="1y")
+        hist = _opt_hist_cache.get(sym)
+        if hist is None:
+            hist = ticker.history(period="1y")
+            if not hist.empty:
+                _opt_hist_cache.set(sym, hist)
         iv_rank, iv_pctl = _iv_rank_pctl(hist["Close"]) if len(hist) >= 60 else (None, None)
 
         return {
@@ -202,7 +294,7 @@ def get_options_stats(symbol: str) -> dict:
         return {"symbol": sym, "error": str(e)}
 
 
-def get_options_watchlist(symbols: list, max_workers: int = 10) -> list:
+def get_options_watchlist(symbols: list, max_workers: int = 15) -> list:
     """Fetch options stats for multiple symbols in parallel."""
     results = {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:

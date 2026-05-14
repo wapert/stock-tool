@@ -836,6 +836,7 @@
     <div class="profile-header" id="profileHeader">
       <div class="profile-header-top">
         <h2 id="activeProfileName">—</h2>
+        <span id="mktStatusBar" style="font-size:0.75rem;display:none;gap:0.6rem;align-items:center;"></span>
         <span class="last-sync-badge" id="lastSyncBadge"></span>
         <button class="btn btn-sync" id="syncBtn" onclick="syncProfile()">⟳ 同步行情</button>
         <button class="btn btn-ghost" id="autoSyncBtn" onclick="toggleAutoSync()"
@@ -845,7 +846,7 @@
           padding:0.2rem 0.6rem; border-radius:5px; white-space:nowrap;"></span>
         <button class="btn btn-ghost" id="exportBtn" onclick="exportCSV()" title="匯出目前資料為 CSV">⬇ 匯出 CSV</button>
         <button class="btn btn-danger" id="deleteProfileBtn" onclick="confirmDeleteProfile()">刪除組合</button>
-        <button class="profile-fold-btn" id="profileFoldBtn" onclick="toggleProfileHeader()" title="收合／展開股票清單">▲</button>
+        <button class="profile-fold-btn" id="profileFoldBtn" onclick="toggleProfileHeader()" title="管理股票清單">⚙ 管理</button>
       </div>
       <div class="stock-chips" id="activeProfileChips"></div>
       <div class="add-stock-wrap">
@@ -911,9 +912,10 @@
 
 <script>
 /* ─── state ─────────────────────────────────────────────── */
-let activeProfile  = null;  // name string or null
-let profilesData   = {};    // { name: { stocks, last_sync } }
-let currentResults = [];    // last rendered rows, used for CSV export
+let activeProfile  = null;
+let profilesData   = {};
+let currentResults = [];
+let _prevPrices    = {};    // {symbol: raw_price} — for direction arrows
 
 /* ─── init ───────────────────────────────────────────────── */
 document.getElementById("symbolInput")
@@ -984,6 +986,8 @@ async function selectProfile(name) {
   document.getElementById("profileHeader").classList.add("visible");
   document.getElementById("activeProfileName").textContent = name;
   updateTopbarProfileLabel();
+  updateMarketStatus();
+  _foldProfileHeader();   // always start folded
 
   // load cached data or empty
   const res  = await fetch(`/profiles/${encodeURIComponent(name)}`);
@@ -1235,7 +1239,7 @@ function renderRows(results) {
         <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
       </td>
       <td class="price">
-        ${r.current_price_fmt}<br/>
+        ${r.current_price_fmt} ${priceArrow(r.symbol, r.current_price)}<br/>
         <span style="font-size:.75rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.day_chg_pct>=0?'#3fb950':'#f85149'};">
           ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
         </span>
@@ -1249,7 +1253,12 @@ function renderRows(results) {
       <td class="col-sep">${earnHtml(r.next_earnings_fmt)}</td>
       <td>${revHtml(r.rev_growth_fmt, r.rev_growth)}</td>
       <td>${analystHtml(r.analyst_fmt, r.buy_pct)}</td>
-      <td class="col-sep"><span class="rec-badge ${recClass(r.recommendation)}">${r.recommendation}</span></td>
+      <td class="col-sep">
+        <span class="rec-badge ${recClass(r.recommendation)}">${r.recommendation}</span>
+        ${r.rating_change ? `<br/><span title="${escHtml(r.rating_change.summary)}" style="font-size:.7rem;font-weight:700;cursor:default;
+          color:${r.rating_change.kind==='up'?'#3fb950':r.rating_change.kind==='down'?'#f85149':'#58a6ff'};">
+          ${escHtml(r.rating_change.label)} ${escHtml(r.rating_change.firm)}</span>` : ''}
+      </td>
       <td class="td-comment">${escHtml(r.comment)}</td>
       <td style="text-align:center;">
         <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})">▼</button>
@@ -1362,6 +1371,18 @@ function detailHtml(r) {
   </div>`;
 }
 
+function priceArrow(sym, curr) {
+  const prev = _prevPrices[sym];
+  if (curr != null) _prevPrices[sym] = curr;
+  if (prev == null || curr == null) return '';
+  const diff = curr - prev;
+  const pct  = Math.abs(diff) / prev;
+  if (pct < 0.00005) return '<span style="color:#8b949e;font-size:.8rem;" title="無變動">●</span>';
+  const big  = pct >= 0.01;   // ≥1% → double arrow
+  if (diff > 0) return `<span style="color:#3fb950;font-size:.9rem;font-weight:700;" title="${(pct*100).toFixed(2)}%↑">${big?'↑↑':'↑'}</span>`;
+  return         `<span style="color:#f85149;font-size:.9rem;font-weight:700;" title="${(pct*100).toFixed(2)}%↓">${big?'↓↓':'↓'}</span>`;
+}
+
 function rsiClass(v) {
   if (v == null)  return "rsi-norm";
   if (v >= 70)    return "rsi-hot";
@@ -1416,9 +1437,82 @@ function toggleProfileHeader() {
   const header = document.getElementById("profileHeader");
   const btn    = document.getElementById("profileFoldBtn");
   const folded = header.classList.toggle("folded");
-  btn.textContent = folded ? "▼" : "▲";
+  btn.textContent = folded ? "⚙ 管理" : "✕ 收合";
   btn.title       = folded ? "展開股票清單" : "收合股票清單";
 }
+
+function _foldProfileHeader() {
+  const header = document.getElementById("profileHeader");
+  const btn    = document.getElementById("profileFoldBtn");
+  if (!header) return;
+  header.classList.add("folded");
+  if (btn) { btn.textContent = "⚙ 管理"; btn.title = "展開股票清單"; }
+}
+
+/* ─── market status ──────────────────────────────────────── */
+const _TW_PAT = /^\d{4,6}[A-Za-z]{0,2}(\.TW[O]?)?$/i;
+
+function _getMktInfo(tz, openH, openM, closeH, closeM) {
+  const now    = new Date();
+  const tzDate = new Date(now.toLocaleString("en-US", {timeZone: tz}));
+  const day = tzDate.getDay();
+  const h = tzDate.getHours(), m = tzDate.getMinutes(), s = tzDate.getSeconds();
+  const curMins   = h * 60 + m;
+  const openMins  = openH * 60 + openM;
+  const closeMins = closeH * 60 + closeM;
+  const weekday   = day >= 1 && day <= 5;
+  const isOpen    = weekday && curMins >= openMins && curMins < closeMins;
+  const timeStr   = tzDate.toLocaleTimeString("en-US",
+                      {hour:"2-digit", minute:"2-digit", hour12:false});
+
+  // minutes to next event
+  let diffMins;
+  if (isOpen) {
+    diffMins = closeMins - curMins - (s > 0 ? 1 : 0);
+  } else if (weekday && curMins < openMins) {
+    diffMins = openMins - curMins - (s > 0 ? 1 : 0);
+  } else {
+    // after close or weekend — find next weekday open
+    const minsToMidnight = 24 * 60 - curMins;
+    let nextDay = (day + 1) % 7, extra = 1;
+    while (nextDay === 0 || nextDay === 6) { extra++; nextDay = (nextDay+1)%7; }
+    diffMins = minsToMidnight + (extra - 1) * 24 * 60 + openMins - (s > 0 ? 1 : 0);
+  }
+  diffMins = Math.max(0, diffMins);
+  const hh = Math.floor(diffMins / 60), mm = diffMins % 60;
+  const countdown = hh > 0 ? `${hh}h ${mm}m` : `${mm}m`;
+  const label     = isOpen ? "距收盤" : "距開盤";
+
+  return { isOpen, timeStr, countdown, label };
+}
+
+function _mkStatusPill(info, flag, mkt, tz) {
+  const col = info.isOpen ? "#3fb950" : "#8b949e";
+  const dot = info.isOpen ? "🟢" : "🔴";
+  const txt = info.isOpen ? "開市" : "休市";
+  return `<span style="display:inline-flex;align-items:center;gap:0.25rem;
+    background:var(--bg3);border:1px solid var(--border);border-radius:5px;
+    padding:0.12rem 0.55rem;font-size:0.72rem;font-weight:600;color:${col};">
+    ${flag} ${mkt} ${dot} ${txt}
+    <span style="font-weight:400;color:var(--muted);">${info.timeStr} ${tz}</span>
+    <span style="color:var(--dim);font-weight:400;">· ${info.label} ${info.countdown}</span>
+  </span>`;
+}
+
+function updateMarketStatus() {
+  const el = document.getElementById("mktStatusBar");
+  if (!el || !activeProfile) { el && (el.style.display="none"); return; }
+  const stocks = (profilesData[activeProfile] || {}).stocks || [];
+  const hasTW  = stocks.some(s => _TW_PAT.test(s));
+  const hasUS  = stocks.some(s => !_TW_PAT.test(s));
+  let html = "";
+  if (hasUS) html += _mkStatusPill(_getMktInfo("America/New_York",9,30,16,0),  "🇺🇸","NYSE","ET");
+  if (hasTW) html += _mkStatusPill(_getMktInfo("Asia/Taipei",      9,0, 13,30), "🇹🇼","TWSE","CST");
+  if (!html) { el.style.display="none"; return; }
+  el.innerHTML = html;
+  el.style.display = "inline-flex";
+}
+setInterval(updateMarketStatus, 60_000);
 
 /* ─── topbar toggle ──────────────────────────────────────── */
 function toggleTopbar() {
@@ -1509,7 +1603,7 @@ function updateSourceBadge(results) {
     label  = "🟢 Alpaca IEX (即時)";
     bg     = "#0d2a1a"; color = "#3fb950"; border = "#238636";
   } else {
-    label  = "🟡 Yahoo Finance (15分鐘延遲)";
+    label  = "🟡 Yahoo Finance";
     bg     = "#1c2128"; color = "#e3b341"; border = "#9e6a03";
   }
   el.textContent = label;

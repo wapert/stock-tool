@@ -6,6 +6,7 @@ import requests
 import xml.etree.ElementTree as ET
 import yfinance as yf
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
 from email.utils import parsedate_to_datetime
@@ -155,45 +156,40 @@ _MF_POOL = [
     "UBER","SPOT","DIS","ROKU","TTD","ASML","TSM","ADBE","INTU",
 ]
 
-def get_us_expert_picks(count=10):
-    """
-    Motley Fool-inspired picks: filter their publicly known stock pool
-    by current analyst buy consensus + highest analyst target upside.
-    Note: MF's actual paid picks are paywalled; this uses their
-    publicly documented 'forever stocks' filtered by live analyst data.
-    """
-    results = []
-    for sym in _MF_POOL:
-        try:
-            info     = yf.Ticker(sym).info or {}
-            rec      = info.get("recommendationKey", "")
-            n_ana    = info.get("numberOfAnalystOpinions") or 0
-            price    = info.get("currentPrice") or info.get("regularMarketPrice")
-            target   = info.get("targetMeanPrice")
-            chg_pct  = info.get("regularMarketChangePercent")
-            if not price or n_ana < 5:
-                continue
-            upside = round((target - price) / price * 100, 1) if target else None
-            results.append({
-                "symbol":     sym,
-                "name":       info.get("shortName", sym),
-                "price_fmt":  f"${price:,.2f}",
-                "change_pct": round(chg_pct, 2) if chg_pct else None,
-                "upside_pct": upside,
-                "n_analysts": n_ana,
-                "volume_fmt": _fmt_vol(info.get("regularMarketVolume")),
-                "market_cap": _fmt_cap(info.get("marketCap")),
-                "rec":        rec,
-            })
-        except Exception:
-            continue
+def _fetch_mf_stock(sym: str):
+    """Fetch one MF pool stock; returns None if not qualifying."""
+    try:
+        info    = yf.Ticker(sym).info or {}
+        rec     = info.get("recommendationKey", "")
+        n_ana   = info.get("numberOfAnalystOpinions") or 0
+        price   = info.get("currentPrice") or info.get("regularMarketPrice")
+        target  = info.get("targetMeanPrice")
+        chg_pct = info.get("regularMarketChangePercent")
+        if not price or n_ana < 5:
+            return None
+        upside = round((target - price) / price * 100, 1) if target else None
+        return {
+            "symbol":     sym,
+            "name":       info.get("shortName", sym),
+            "price_fmt":  f"${price:,.2f}",
+            "change_pct": round(chg_pct, 2) if chg_pct else None,
+            "upside_pct": upside,
+            "n_analysts": n_ana,
+            "volume_fmt": _fmt_vol(info.get("regularMarketVolume")),
+            "market_cap": _fmt_cap(info.get("marketCap")),
+            "rec":        rec,
+        }
+    except Exception:
+        return None
 
-    # Sort: strong buy first, then by upside potential
-    _rank = {"strong_buy":0,"strongBuy":0,"buy":1}
-    results.sort(key=lambda r: (
-        _rank.get(r["rec"], 2),
-        -(r["upside_pct"] or 0)
-    ))
+
+def get_us_expert_picks(count=10):
+    """Parallel fetch of MF pool — 8 workers instead of sequential."""
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        raw = list(ex.map(_fetch_mf_stock, _MF_POOL))
+    results = [r for r in raw if r is not None]
+    _rank = {"strong_buy": 0, "strongBuy": 0, "buy": 1}
+    results.sort(key=lambda r: (_rank.get(r["rec"], 2), -(r["upside_pct"] or 0)))
     return results[:count]
 
 
@@ -342,29 +338,34 @@ def get_tw_sectors(batch=None) -> list:
     return result
 
 
+def _fetch_tw_expert_stock(sym: str):
+    try:
+        info   = yf.Ticker(sym + ".TW").info or {}
+        rec    = info.get("recommendationKey", "")
+        n_ana  = info.get("numberOfAnalystOpinions") or 0
+        price  = info.get("currentPrice") or info.get("regularMarketPrice")
+        target = info.get("targetMeanPrice")
+        if rec not in ("strong_buy", "strongBuy", "buy") or n_ana < 3 or not price:
+            return None
+        upside = round((target - price) / price * 100, 1) if target else None
+        return {
+            "symbol":     sym,
+            "name":       _tw_name(sym),
+            "price_fmt":  f"NT${price:,.0f}",
+            "change_pct": None,
+            "upside_pct": upside,
+            "n_analysts": n_ana,
+            "volume_fmt": "",
+        }
+    except Exception:
+        return None
+
+
 def get_tw_expert_picks(count=10) -> list:
-    """Taiwan stocks with strong analyst buy consensus."""
-    results = []
-    for sym in TW_EXPERT_POOL:
-        try:
-            info   = yf.Ticker(sym + ".TW").info or {}
-            rec    = info.get("recommendationKey", "")
-            n_ana  = info.get("numberOfAnalystOpinions") or 0
-            price  = info.get("currentPrice") or info.get("regularMarketPrice")
-            target = info.get("targetMeanPrice")
-            if rec in ("strong_buy", "strongBuy", "buy") and n_ana >= 3 and price:
-                upside = round((target - price) / price * 100, 1) if target else None
-                results.append({
-                    "symbol":     sym,
-                    "name":       _tw_name(sym),
-                    "price_fmt":  f"NT${price:,.0f}",
-                    "change_pct": None,
-                    "upside_pct": upside,
-                    "n_analysts": n_ana,
-                    "volume_fmt": "",
-                })
-        except Exception:
-            continue
+    """Parallel fetch of TW expert pool."""
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        raw = list(ex.map(_fetch_tw_expert_stock, TW_EXPERT_POOL))
+    results = [r for r in raw if r is not None]
     results.sort(key=lambda x: x.get("upside_pct") or 0, reverse=True)
     return results[:count]
 
@@ -504,15 +505,21 @@ def get_market_overview(market: str) -> dict:
     try:
         status = get_market_status()
         if market == "US":
+            # Run all sections + news concurrently
+            with ThreadPoolExecutor(max_workers=5) as ex:
+                f = {
+                    "gainers": ex.submit(get_us_gainers, 10),
+                    "volume":  ex.submit(get_us_volume, 10),
+                    "sectors": ex.submit(get_us_sectors),
+                    "expert":  ex.submit(get_us_expert_picks, 10),
+                    "news":    ex.submit(get_us_news, 8),
+                }
+                results = {k: v.result() for k, v in f.items()}
             return {
-                "gainers": get_us_gainers(10),
-                "volume":  get_us_volume(10),
-                "sectors": get_us_sectors(),
-                "expert":  get_us_expert_picks(10),
+                **results,
                 "market_status": status["US"],
                 "fetch_time":    status["fetch_time"],
                 "expert_source": "Motley Fool 精選池 (公開推薦股)",
-                "news": get_us_news(8),
                 "sources": {
                     "gainers": "Yahoo + Alpaca",
                     "volume":  "Yahoo + Alpaca",
@@ -521,16 +528,23 @@ def get_market_overview(market: str) -> dict:
                 },
             }
         else:
-            batch = _get_tw_batch()
+            # TW: batch download once, then run expert + news concurrently
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                f_batch  = ex.submit(_get_tw_batch)
+                f_expert = ex.submit(get_tw_expert_picks, 10)
+                f_news   = ex.submit(get_tw_news, 8)
+                batch  = f_batch.result()
+                expert = f_expert.result()
+                news   = f_news.result()
             return {
                 "gainers": get_tw_gainers(10, batch),
                 "volume":  get_tw_volume(10, batch),
                 "sectors": get_tw_sectors(batch),
-                "expert":  get_tw_expert_picks(10),
+                "expert":  expert,
+                "news":    news,
                 "market_status": status["TW"],
                 "fetch_time":    status["fetch_time"],
                 "expert_source": "法人強力買入評級",
-                "news": get_tw_news(8),
                 "sources": {
                     "gainers": "Yahoo",
                     "volume":  "Yahoo",

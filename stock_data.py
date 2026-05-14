@@ -1,8 +1,40 @@
 import re
+import time
+import threading
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
+
+# ── History cache ─────────────────────────────────────────────────────────────
+# Daily OHLCV bars change slowly; cache for 2 hours so repeated analyze_stock
+# calls (e.g. profile sync after cache bust) skip the expensive download.
+
+class _HistCache:
+    TTL = 2 * 3600   # 2 hours
+
+    def __init__(self):
+        self._store = {}
+        self._lock  = threading.Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            e = self._store.get(key)
+            if e and time.time() - e["ts"] < self.TTL:
+                return e["data"]
+        return None
+
+    def set(self, key: str, data):
+        with self._lock:
+            self._store[key] = {"data": data, "ts": time.time()}
+
+    def stats(self):
+        with self._lock:
+            now  = time.time()
+            live = sum(1 for v in self._store.values() if now - v["ts"] < self.TTL)
+            return {"live": live, "total": len(self._store)}
+
+_hist_cache = _HistCache()
 
 # Taiwan stock/ETF: 4-6 digits, optional 1-2 trailing letters (e.g. 00663L, 00632R)
 # optionally already suffixed with .TW / .TWO
@@ -238,6 +270,68 @@ def generate_comment(symbol, current_price, target_price, rsi, forward_pe,
     return "，".join(parts) + "。" if parts else "基本面穩健，持續關注。"
 
 
+_ACTION_LABEL = {
+    "up":   ("⬆ 升評", "up"),
+    "down": ("⬇ 降評", "down"),
+    "init": ("★ 首評", "init"),
+}
+
+def get_rating_change_today(ticker):
+    """
+    Return today's most significant analyst rating change, or None.
+    Prioritises upgrades > downgrades > initiations; ignores maintained/reiterated.
+    """
+    from zoneinfo import ZoneInfo
+    try:
+        ud = ticker.upgrades_downgrades
+        if ud is None or ud.empty:
+            return None
+
+        today_et = datetime.now(ZoneInfo("America/New_York")).date()
+
+        # GradeDate index may be tz-aware or tz-naive
+        idx = ud.index
+        if hasattr(idx, "tzinfo") and idx.tzinfo is not None:
+            dates = idx.tz_convert("America/New_York").date
+        else:
+            dates = idx.date if hasattr(idx, "date") else [d.date() for d in idx]
+
+        today_rows = ud[[d == today_et for d in dates]]
+        if today_rows.empty:
+            return None
+
+        # Priority: up > down > init; skip main/reit
+        priority = {"up": 0, "down": 1, "init": 2}
+        best = None
+        for _, row in today_rows.iterrows():
+            act = str(row.get("Action", "")).lower()
+            if act not in priority:
+                continue
+            if best is None or priority[act] < priority[best["action"]]:
+                best = {
+                    "action":    act,
+                    "firm":      str(row.get("Firm", "")).strip(),
+                    "to_grade":  str(row.get("ToGrade", "")).strip(),
+                    "from_grade":str(row.get("FromGrade", "")).strip(),
+                }
+        if not best:
+            return None
+
+        label, kind = _ACTION_LABEL[best["action"]]
+        detail = best["to_grade"]
+        if best["from_grade"] and best["from_grade"] != best["to_grade"]:
+            detail = f"{best['from_grade']} → {best['to_grade']}"
+        return {
+            "kind":    kind,                            # "up" | "down" | "init"
+            "label":   label,                           # "⬆ 升評" etc.
+            "firm":    best["firm"],
+            "detail":  detail,
+            "summary": f"{label} {best['firm']} ({detail})",
+        }
+    except Exception:
+        return None
+
+
 def _get_tw_chinese_name(code: str):
     """Look up Chinese short name from twstock's bundled code table."""
     try:
@@ -356,7 +450,11 @@ def analyze_stock(symbol: str) -> dict:
 
         rev_growth = info.get("revenueGrowth")
 
-        hist = ticker.history(period="1y")
+        hist = _hist_cache.get(symbol)
+        if hist is None:
+            hist = ticker.history(period="6mo")   # 6mo ≈ 130 days; all indicators
+            if not hist.empty:
+                _hist_cache.set(symbol, hist)
         closes  = hist["Close"]
         volumes = hist["Volume"]
 
@@ -403,6 +501,7 @@ def analyze_stock(symbol: str) -> dict:
 
         next_earnings   = get_next_earnings(ticker)
         n_analysts, buy_pct = get_analyst_stats(ticker, info)
+        rating_change   = get_rating_change_today(ticker)
         comment = generate_comment(
             symbol, current_price, target_price, rsi or 50,
             forward_pe, upside_pct, next_earnings, macd_label, rev_growth,
@@ -426,6 +525,7 @@ def analyze_stock(symbol: str) -> dict:
             "currency": currency,
             "company_name": company_name,
             "price_source":      price_source,
+            "current_price":     round(float(current_price), 4),
             "current_price_fmt": _fmt_price(current_price, currency),
             "day_change":     round(day_change, 2)  if day_change  is not None else None,
             "day_chg_pct":    round(day_chg_pct, 2) if day_chg_pct is not None else None,
@@ -468,6 +568,7 @@ def analyze_stock(symbol: str) -> dict:
                 if n_analysts and buy_pct is not None else
                 (f"{int(n_analysts)}人" if n_analysts else "N/A")
             ),
+            "rating_change": rating_change,
             # ── new indicators ──────────────────────────────────
             # Bollinger Bands
             "bb_pct":      bb_pct,

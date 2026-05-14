@@ -117,6 +117,20 @@
     .row { display: flex; gap: 0.4rem; }
     .row button { flex: 1; }
 
+    /* ── pull-to-refresh indicator ── */
+    .ptr-bar {
+      display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+      height: 0; overflow: hidden;
+      background: var(--bg2); border-bottom: 1px solid transparent;
+      font-size: 0.8rem; color: var(--muted);
+      transition: height 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .ptr-bar.pulling  { border-color: var(--border); }
+    .ptr-bar.ready    { color: var(--green); border-color: var(--green); }
+    .ptr-arrow { display: inline-block; transition: transform 0.2s; }
+    .ptr-bar.ready .ptr-arrow { transform: rotate(180deg); }
+
     /* ── main scroll area ── */
     .main {
       flex: 1; overflow-y: auto; overflow-x: hidden;
@@ -143,6 +157,9 @@
     }
     .profile-panel-name { font-size: 1rem; font-weight: 700; color: var(--blue); flex: 1; }
     .sync-time { font-size: 0.7rem; color: var(--dim); width: 100%; padding: 0 0.75rem 0.4rem; }
+    /* folded profile panel hides chips + add-stock row */
+    .profile-panel.folded .chip-wrap,
+    .profile-panel.folded .chip-add-wrap { display: none; }
 
     /* chips */
     .chip-wrap {
@@ -455,6 +472,11 @@
 </div>
 
 <!-- main scroll -->
+<div class="ptr-bar" id="ptrBar">
+  <span class="ptr-arrow">↓</span>
+  <span id="ptrText">下拉同步行情</span>
+</div>
+
 <div class="main" id="main">
 
   <!-- search bar (toggle) -->
@@ -468,11 +490,13 @@
   <div class="profile-panel" id="profilePanel">
     <div class="profile-panel-top">
       <span class="profile-panel-name" id="panelName">—</span>
+      <button class="btn btn-ghost btn-sm" id="mPanelConfigBtn" onclick="toggleMobilePanel()" title="管理股票清單">⚙</button>
       <button class="btn btn-sync btn-sm" id="syncBtn" onclick="syncProfile()">⟳ 同步</button>
       <button class="btn btn-ghost btn-sm" id="autoSyncBtn" onclick="toggleAutoSync()" title="每30秒自動同步">⏱ 自動</button>
       <span id="autoSyncCountdown" style="font-size:0.68rem;color:var(--dim);display:none;"></span>
       <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ CSV</button>
     </div>
+    <div id="mMktStatus" style="display:none;padding:0 0.75rem 0.3rem;font-size:0.7rem;display:none;gap:0.4rem;flex-wrap:wrap;"></div>
     <div class="sync-time" id="syncTime"></div>
     <div id="mSrcBadge" style="display:none;padding:0 0.75rem 0.4rem;font-size:0.72rem;font-weight:600;"></div>
     <div class="chip-wrap" id="chipWrap"></div>
@@ -502,9 +526,7 @@
   <button class="bottom-btn" id="syncBottomBtn" onclick="syncProfile()">
     <span class="ico">⟳</span>同步
   </button>
-  <button class="bottom-btn" onclick="toggleSearch()">
-    <span class="ico">🔍</span>查詢
-  </button>
+
   <button class="bottom-btn" onclick="exportCSV()">
     <span class="ico">⬇</span>匯出
   </button>
@@ -537,6 +559,7 @@ let activeProfile  = null;
 let profilesData   = {};
 let currentResults = [];
 let searchVisible  = false;
+let _prevPrices    = {};
 
 /* ── init ── */
 document.getElementById("symbolInput")
@@ -591,6 +614,8 @@ async function selectProfile(name) {
   document.getElementById("topProfileLabel").classList.remove("no-profile");
   document.getElementById("panelName").textContent = name;
   document.getElementById("profilePanel").classList.add("visible");
+  _foldMobilePanel();     // always start folded
+  updateMarketStatus();
 
   const res  = await fetch(`/profiles/${encodeURIComponent(name)}`);
   const data = await res.json();
@@ -847,10 +872,13 @@ function renderCards(results) {
             <div class="card-company">${esc(r.company_name)}</div>
           </div>
           <span class="rec-badge ${recClass(r.recommendation)}">${r.recommendation}</span>
+          ${r.rating_change ? `<span title="${esc(r.rating_change.summary)}" style="font-size:.65rem;font-weight:700;
+            color:${r.rating_change.kind==='up'?'#3fb950':r.rating_change.kind==='down'?'#f85149':'#58a6ff'};">
+            ${esc(r.rating_change.label)}</span>` : ''}
         </div>
 
         <div class="card-price">
-          <span class="price-now">${r.current_price_fmt}</span>
+          <span class="price-now">${r.current_price_fmt}</span>${mPriceArrow(r.symbol, r.current_price)}
           <span style="font-size:.85rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.day_chg_pct>=0?'#3fb950':'#f85149'};">
             ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
           </span>
@@ -937,6 +965,18 @@ function toggleExtra(i) {
 }
 
 /* ── helpers ── */
+function mPriceArrow(sym, curr) {
+  const prev = _prevPrices[sym];
+  if (curr != null) _prevPrices[sym] = curr;
+  if (prev == null || curr == null) return '';
+  const diff = curr - prev;
+  const pct  = Math.abs(diff) / prev;
+  if (pct < 0.00005) return '<span style="color:#8b949e;font-size:.85rem;">●</span>';
+  const big  = pct >= 0.01;
+  if (diff > 0) return `<span style="color:#3fb950;font-size:1rem;font-weight:700;">${big?'↑↑':'↑'}</span>`;
+  return         `<span style="color:#f85149;font-size:1rem;font-weight:700;">${big?'↓↓':'↓'}</span>`;
+}
+
 function rsiCls(v) {
   if (v==null) return "rsi-norm";
   if (v>=70) return "rsi-hot"; if (v>=55) return "rsi-warm";
@@ -993,6 +1033,53 @@ function _setAutoSyncBtn(on) {
     : "";
 }
 
+/* ─── market status ── */
+const _TW_PAT = /^\d{4,6}[A-Za-z]{0,2}(\.TW[O]?)?$/i;
+function _getMktInfo(tz, openH, openM, closeH, closeM) {
+  const now=new Date(), tzDate=new Date(now.toLocaleString("en-US",{timeZone:tz}));
+  const day=tzDate.getDay(), h=tzDate.getHours(), m=tzDate.getMinutes(), s=tzDate.getSeconds();
+  const cur=h*60+m, opn=openH*60+openM, cls=closeH*60+closeM;
+  const wd=day>=1&&day<=5, isOpen=wd&&cur>=opn&&cur<cls;
+  const timeStr=tzDate.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:false});
+  let diff;
+  if(isOpen) diff=cls-cur-(s>0?1:0);
+  else if(wd&&cur<opn) diff=opn-cur-(s>0?1:0);
+  else{const ml=24*60-cur;let nd=(day+1)%7,ex=1;while(nd===0||nd===6){ex++;nd=(nd+1)%7;}diff=ml+(ex-1)*24*60+opn-(s>0?1:0);}
+  diff=Math.max(0,diff);
+  const hh=Math.floor(diff/60),mm=diff%60;
+  return{isOpen,timeStr,countdown:hh>0?`${hh}h ${mm}m`:`${mm}m`,label:isOpen?"距收盤":"距開盤"};
+}
+function updateMarketStatus(){
+  const el=document.getElementById("mMktStatus");
+  if(!el||!activeProfile){el&&(el.style.display="none");return;}
+  const stocks=(profilesData[activeProfile]||{}).stocks||[];
+  const hasTW=stocks.some(s=>_TW_PAT.test(s)), hasUS=stocks.some(s=>!_TW_PAT.test(s));
+  const pill=(info,flag,mkt,tz)=>`<span style="display:inline-flex;align-items:center;gap:.2rem;
+    background:var(--bg3);border:1px solid var(--border);border-radius:5px;
+    padding:.1rem .45rem;font-size:.68rem;font-weight:600;color:${info.isOpen?"#3fb950":"#8b949e"};">
+    ${flag} ${mkt} ${info.isOpen?"🟢":"🔴"} ${info.isOpen?"開市":"休市"}
+    <span style="font-weight:400;color:var(--dim);">${info.timeStr} ${tz} · ${info.label} ${info.countdown}</span></span>`;
+  let html="";
+  if(hasUS) html+=pill(_getMktInfo("America/New_York",9,30,16,0),"🇺🇸","NYSE","ET");
+  if(hasTW) html+=pill(_getMktInfo("Asia/Taipei",9,0,13,30),"🇹🇼","TWSE","CST");
+  if(!html){el.style.display="none";return;}
+  el.innerHTML=html; el.style.display="flex";
+}
+setInterval(updateMarketStatus,60_000);
+
+function toggleMobilePanel() {
+  const panel = document.getElementById("profilePanel");
+  const btn   = document.getElementById("mPanelConfigBtn");
+  const folded = panel.classList.toggle("folded");
+  if (btn) btn.textContent = folded ? "⚙" : "✕";
+}
+function _foldMobilePanel() {
+  const panel = document.getElementById("profilePanel");
+  const btn   = document.getElementById("mPanelConfigBtn");
+  if (panel) panel.classList.add("folded");
+  if (btn) btn.textContent = "⚙";
+}
+
 function updateSourceBadge(results) {
   const el = document.getElementById("mSrcBadge");
   if (!el || !results || !results.length) { el && (el.style.display="none"); return; }
@@ -1002,7 +1089,7 @@ function updateSourceBadge(results) {
   let label, color;
   if (hasAlpaca && hasYahoo) { label="🟢 Alpaca + Yahoo"; color="#3fb950"; }
   else if (hasAlpaca)        { label="🟢 Alpaca IEX (即時)"; color="#3fb950"; }
-  else                       { label="🟡 Yahoo Finance (15分鐘延遲)"; color="#e3b341"; }
+  else                       { label="🟡 Yahoo Finance"; color="#e3b341"; }
   el.textContent = label;
   el.style.color = color;
   el.style.display = "block";
@@ -1035,6 +1122,52 @@ applyTheme(localStorage.getItem("theme") || "dark");
 
 if ("serviceWorker" in navigator)
   navigator.serviceWorker.register("/static/sw.js").catch(()=>{});
+
+/* ── pull-to-refresh ─────────────────────────────────────── */
+(function() {
+  const PTR_THRESHOLD = 70;
+  const PTR_MAX_H     = 48;
+  let startY = 0, pulling = false, triggered = false;
+
+  const bar  = document.getElementById("ptrBar");
+  const txt  = document.getElementById("ptrText");
+  const main = document.getElementById("main");
+  if (!bar || !main) return;
+
+  function setState(state, height) {
+    bar.style.height = height + "px";
+    bar.className    = "ptr-bar" + (state ? " " + state : "");
+    if (state === "ready")   txt.textContent = "放開以同步";
+    if (state === "pulling") txt.textContent = "下拉同步行情";
+  }
+
+  main.addEventListener("touchstart", e => {
+    if (main.scrollTop === 0 && activeProfile) {
+      startY    = e.touches[0].clientY;
+      pulling   = true;
+      triggered = false;
+    }
+  }, { passive: true });
+
+  main.addEventListener("touchmove", e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { setState("", 0); return; }
+    const h = Math.min(dy * 0.5, PTR_MAX_H);
+    setState(h >= PTR_MAX_H * 0.9 ? "ready" : "pulling", h);
+  }, { passive: true });
+
+  main.addEventListener("touchend", e => {
+    if (!pulling) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    setState("", 0);
+    if (dy >= PTR_THRESHOLD && !triggered) {
+      triggered = true;
+      syncProfile();
+    }
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
