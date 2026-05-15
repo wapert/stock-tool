@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 # Fundamentals (PE, targets, analyst counts) change slowly.
 # Caching eliminates the biggest bottleneck: parallel Yahoo Finance requests.
 class _InfoCache:
-    TTL = 10 * 60   # 10 minutes
+    TTL = 30 * 60   # 30 minutes — fundamentals change slowly
 
     def __init__(self):
         self._s = {}
