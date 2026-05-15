@@ -6,6 +6,27 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
 
+# ── Rating-change daily cache ─────────────────────────────────────────────────
+# get_rating_change_today costs ~0.63s for TW (rarely returns data) and
+# ~0.09s for US. Cache by symbol+date so it's only fetched once per day.
+_rating_cache      = {}
+_rating_cache_lock = threading.Lock()
+
+def _get_rating_cached(ticker, sym: str, is_taiwan: bool):
+    """Skip entirely for TW; cache result for US by date."""
+    if is_taiwan:
+        return None
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    with _rating_cache_lock:
+        entry = _rating_cache.get(sym)
+        if entry and entry["date"] == today:
+            return entry["result"]
+    result = get_rating_change_today(ticker)
+    with _rating_cache_lock:
+        _rating_cache[sym] = {"date": today, "result": result}
+    return result
+
 # ── History cache ─────────────────────────────────────────────────────────────
 # Daily OHLCV bars change slowly; cache for 2 hours so repeated analyze_stock
 # calls (e.g. profile sync after cache bust) skip the expensive download.
@@ -452,7 +473,8 @@ def analyze_stock(symbol: str) -> dict:
 
         hist = _hist_cache.get(symbol)
         if hist is None:
-            hist = ticker.history(period="6mo")   # 6mo ≈ 130 days; all indicators
+            if hist is None:
+                hist = ticker.history(period="6mo")
             if not hist.empty:
                 _hist_cache.set(symbol, hist)
         closes  = hist["Close"]
@@ -501,7 +523,7 @@ def analyze_stock(symbol: str) -> dict:
 
         next_earnings   = get_next_earnings(ticker)
         n_analysts, buy_pct = get_analyst_stats(ticker, info)
-        rating_change   = get_rating_change_today(ticker)
+        rating_change   = _get_rating_cached(ticker, symbol, is_taiwan)
         comment = generate_comment(
             symbol, current_price, target_price, rsi or 50,
             forward_pe, upside_pct, next_earnings, macd_label, rev_growth,

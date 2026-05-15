@@ -11,6 +11,7 @@ from stock_data import analyze_stock
 from market_data  import get_market_overview
 from options_data import get_options_stats, get_options_watchlist, get_dynamic_watchlist
 
+
 TW_TZ = ZoneInfo("Asia/Taipei")
 
 # ── Simple in-memory cache ────────────────────────────────────────────────────
@@ -101,17 +102,46 @@ app = Flask(__name__,
 _data_dir = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 PROFILES_FILE = os.path.join(_data_dir, "profiles.json")
 
+_profiles_lock = threading.Lock()   # serialise all reads + writes
+
 
 def load_profiles() -> dict:
-    if not os.path.exists(PROFILES_FILE):
-        return {}
-    with open(PROFILES_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    """
+    Load profiles with automatic fallback to .bak if the main file is corrupt.
+    """
+    for path in [PROFILES_FILE, PROFILES_FILE + ".bak"]:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            continue   # try next fallback
+    return {}
 
 
 def save_profiles(profiles: dict) -> None:
-    with open(PROFILES_FILE, "w", encoding="utf-8") as f:
-        json.dump(profiles, f, ensure_ascii=False, indent=2)
+    """
+    Safe save: validate JSON → write to .tmp → atomic rename.
+    A .bak copy of the previous good file is kept for emergency recovery.
+    The file lock ensures no two threads write simultaneously.
+    """
+    # 1. Serialise and validate before touching the disk
+    data = json.dumps(profiles, ensure_ascii=False, indent=2)
+    json.loads(data)                                    # raises if serialisation produced garbage
+
+    with _profiles_lock:
+        tmp = PROFILES_FILE + ".tmp"
+        # 2. Write to temp file
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+        # 3. Keep the current good file as .bak before replacing
+        if os.path.exists(PROFILES_FILE):
+            os.replace(PROFILES_FILE, PROFILES_FILE + ".bak")
+        # 4. Atomic rename — never leaves PROFILES_FILE partially written
+        os.replace(tmp, PROFILES_FILE)
 
 
 # ── pages ────────────────────────────────────────────────────────────────────

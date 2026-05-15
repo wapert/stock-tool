@@ -8,6 +8,7 @@ numpy==2.0.2
 pandas==2.3.3
 peewee==4.0.5
 python-dotenv==1.2.1
+shioaji
 twstock==1.4.6
 tzdata==2026.2
 yfinance==1.2.0
