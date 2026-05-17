@@ -146,6 +146,13 @@ def save_profiles(profiles: dict) -> None:
 
 # ── pages ────────────────────────────────────────────────────────────────────
 
+@app.after_request
+def no_cache_html(resp):
+    if "text/html" in resp.content_type:
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
 def _is_mobile():
     ua = request.user_agent.string.lower()
     return any(k in ua for k in ["android", "iphone", "ipad", "mobile", "tablet"])
@@ -204,6 +211,57 @@ def options_data_api():
 
     results = [hits.get(s, {"symbol": s, "error": "fetch failed"}) for s in symbols]
     return jsonify({"results": results, "count": len(results)})
+
+@app.route("/options/oi")
+def options_oi():
+    import yfinance as yf
+    sym    = request.args.get("symbol", "").strip().upper()
+    expiry = request.args.get("expiry", "").strip()
+    if not sym:
+        return jsonify({"error": "symbol required"}), 400
+    try:
+        ticker = yf.Ticker(sym)
+        exps   = ticker.options
+        if not exps:
+            return jsonify({"error": "No options data"}), 404
+        if expiry not in exps:
+            expiry = exps[0]
+        cache_key = f"{sym}:{expiry}"
+        from options_data import _chain_cache
+        chain = _chain_cache.get(cache_key)
+        if chain is None:
+            chain = ticker.option_chain(expiry)
+            _chain_cache.set(cache_key, chain)
+        calls = chain.calls[["strike","openInterest","volume"]].fillna(0)
+        puts  = chain.puts[["strike","openInterest","volume"]].fillna(0)
+        merged = calls.merge(puts, on="strike", suffixes=("_c","_p"))
+        try:
+            price = float(ticker.fast_info.last_price)
+            merged = merged[(merged["strike"] >= price*0.75) & (merged["strike"] <= price*1.25)]
+        except Exception:
+            price = None
+        max_pain = None
+        try:
+            pain = {}
+            for s in merged["strike"]:
+                cp = float(merged[merged["strike"]>=s]["openInterest_c"].sum()*(merged[merged["strike"]>=s]["strike"]-s).mean() or 0)
+                pp = float(merged[merged["strike"]<=s]["openInterest_p"].sum()*(s-merged[merged["strike"]<=s]["strike"]).mean() or 0)
+                pain[s] = cp + pp
+            if pain: max_pain = min(pain, key=pain.get)
+        except Exception:
+            pass
+        return jsonify({
+            "symbol": sym, "expiry": expiry, "expirations": list(exps[:8]),
+            "price": price, "max_pain": max_pain,
+            "strikes": merged["strike"].tolist(),
+            "call_oi": merged["openInterest_c"].astype(int).tolist(),
+            "put_oi":  merged["openInterest_p"].astype(int).tolist(),
+            "call_vol":merged["volume_c"].astype(int).tolist(),
+            "put_vol": merged["volume_p"].astype(int).tolist(),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/options/single")
 def options_single():

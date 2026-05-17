@@ -122,6 +122,37 @@
       animation:spin-ring 0.75s linear infinite;
     }
     @keyframes spin-ring { to { transform:rotate(360deg); } }
+
+    /* OI chart button */
+    .oi-btn { width:100%; padding:.4rem; border:none; background:var(--bg3);
+              color:var(--blue); font-size:.78rem; font-weight:600; cursor:pointer;
+              border-top:1px solid var(--border); border-radius:0 0 10px 10px; }
+    .oi-btn:active { opacity:.7; }
+
+    /* OI modal */
+    .oi-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:300;
+                  display:none; align-items:flex-end; justify-content:center; }
+    .oi-overlay.open { display:flex; }
+    .oi-modal { background:var(--bg2); border:1px solid var(--border);
+                border-radius:14px 14px 0 0; width:100%; max-height:85vh;
+                display:flex; flex-direction:column; overflow:hidden; }
+    .oi-header { display:flex; align-items:center; gap:.5rem;
+                 padding:.7rem 1rem; border-bottom:1px solid var(--border); }
+    .oi-header h2 { font-size:.88rem; font-weight:700; color:var(--blue); flex:1; }
+    .oi-close { background:none; border:none; color:var(--muted); cursor:pointer;
+                font-size:1.1rem; padding:.2rem .5rem; }
+    .oi-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+                   padding:.5rem .75rem; border-bottom:1px solid var(--border); }
+    .oi-expiry { flex:1; padding:.3rem .5rem; border-radius:6px;
+                 border:1px solid var(--border); background:var(--bg3);
+                 color:var(--text); font-size:.8rem; outline:none; }
+    .oi-tabs { display:flex; gap:.3rem; }
+    .oi-tab { padding:.25rem .65rem; border-radius:6px; border:1px solid var(--border);
+              background:none; color:var(--muted); cursor:pointer;
+              font-size:.78rem; font-weight:600; }
+    .oi-tab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .oi-info { font-size:.7rem; color:var(--dim); width:100%; }
+    .oi-body { flex:1; overflow:auto; padding:.75rem; min-height:240px; }
   </style>
 </head>
 <body>
@@ -242,6 +273,7 @@ function renderCard(r) {
       <span style="font-weight:700;color:var(--yellow);">${r.exp_to_exp_fmt || "N/A"}</span>
       <span style="font-size:.7rem;color:var(--dim);">至 ${(r.nearest_exp||"").slice(5)} (${r.days_to_exp||"?"}d) | 每日 ${r.exp_daily_fmt||"N/A"}</span>
     </div>
+    <button class="oi-btn" onclick="openOIChart('${esc(r.symbol)}')">📊 OI 分佈圖</button>
   </div>`;
 }
 
@@ -316,7 +348,95 @@ function toggleGuide() {
   g.style.display = g.style.display === "none" ? "block" : "none";
 }
 
+/* ── OI Chart ── */
+let _oiSym="", _oiTab="oi", _oiData=null, _oiChart=null;
+
+function openOIChart(sym) {
+  _oiSym=sym; _oiTab="oi";
+  document.getElementById("tabOI").classList.add("active");
+  document.getElementById("tabVol").classList.remove("active");
+  document.getElementById("oiOverlay").classList.add("open");
+  document.getElementById("oiTitle").textContent=sym+" OI 分佈";
+  loadOIChart(sym,"");
+}
+function closeOIChart() {
+  document.getElementById("oiOverlay").classList.remove("open");
+  if(_oiChart){_oiChart.destroy();_oiChart=null;}
+}
+function switchOITab(tab) {
+  _oiTab=tab;
+  document.getElementById("tabOI").classList.toggle("active",tab==="oi");
+  document.getElementById("tabVol").classList.toggle("active",tab==="vol");
+  if(_oiData) renderOIChart(_oiData);
+}
+async function loadOIChart(sym,expiry) {
+  document.getElementById("oiInfo").textContent="載入中…";
+  if(_oiChart){_oiChart.destroy();_oiChart=null;}
+  try {
+    const url=`/options/oi?symbol=${sym}${expiry?"&expiry="+expiry:""}`;
+    const data=await fetch(url).then(r=>r.json());
+    if(data.error){document.getElementById("oiInfo").textContent=data.error;return;}
+    _oiData=data;
+    const sel=document.getElementById("oiExpiry");
+    sel.innerHTML=data.expirations.map(e=>`<option value="${e}" ${e===data.expiry?"selected":""}>${e}</option>`).join("");
+    renderOIChart(data);
+  } catch(e){document.getElementById("oiInfo").textContent="錯誤: "+e.message;}
+}
+function renderOIChart(data) {
+  if(typeof Chart==="undefined"){document.getElementById("oiInfo").textContent="Chart.js 尚未載入";return;}
+  if(_oiChart){_oiChart.destroy();_oiChart=null;}
+  const isOI=_oiTab==="oi";
+  const callY=isOI?data.call_oi:data.call_vol;
+  const putY =isOI?data.put_oi:data.put_vol;
+  let info=`現價: $${data.price!=null?data.price.toFixed(2):"—"}`;
+  if(data.max_pain) info+=` | Max Pain: $${data.max_pain.toFixed(2)}`;
+  document.getElementById("oiInfo").textContent=info;
+  const ctx=document.getElementById("oiCanvas").getContext("2d");
+  _oiChart=new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels:data.strikes.map(s=>"$"+s.toFixed(0)),
+      datasets:[
+        {label:"Call "+(isOI?"OI":"Vol"),data:callY,backgroundColor:"rgba(63,185,80,.75)",borderColor:"#3fb950",borderWidth:1},
+        {label:"Put " +(isOI?"OI":"Vol"),data:putY, backgroundColor:"rgba(248,81,73,.65)",borderColor:"#f85149",borderWidth:1}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:"#8b949e",boxWidth:12}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString()}`}}
+      },
+      scales:{
+        x:{ticks:{color:"#8b949e",maxRotation:45,font:{size:9}},grid:{color:"rgba(255,255,255,.06)"}},
+        y:{ticks:{color:"#8b949e",font:{size:9},callback:v=>v>=1e6?v/1e6+"M":v>=1e3?v/1e3+"K":v},grid:{color:"rgba(255,255,255,.06)"}}
+      }
+    }
+  });
+}
+
 loadDefaults();
 </script>
+
+<!-- OI Modal -->
+<div class="oi-overlay" id="oiOverlay" onclick="if(event.target===this)closeOIChart()">
+  <div class="oi-modal">
+    <div class="oi-header">
+      <h2 id="oiTitle">OI 分佈</h2>
+      <button class="oi-close" onclick="closeOIChart()">✕</button>
+    </div>
+    <div class="oi-controls">
+      <select class="oi-expiry" id="oiExpiry" onchange="loadOIChart(_oiSym,this.value)"></select>
+      <div class="oi-tabs">
+        <button class="oi-tab active" id="tabOI"  onclick="switchOITab('oi')">OI</button>
+        <button class="oi-tab"        id="tabVol" onclick="switchOITab('vol')">Vol</button>
+      </div>
+      <span class="oi-info" id="oiInfo"></span>
+    </div>
+    <div class="oi-body"><canvas id="oiCanvas"></canvas></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </body>
 </html>

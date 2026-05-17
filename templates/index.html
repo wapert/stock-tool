@@ -869,7 +869,8 @@
     <div class="spinner" id="spinner"><div class="spinner-ring"></div></div>
     <div class="error-msg"  id="errorMsg"></div>
 
-    <div class="table-wrap">
+    <div id="emptyMsg" class="empty-state" style="display:none;padding:2.5rem 0;text-align:center;color:var(--dim);font-size:0.88rem;"></div>
+    <div class="table-wrap" id="resultTableWrap" style="display:none">
       <table>
         <thead>
           <tr class="group-row">
@@ -897,7 +898,7 @@
           </tr>
         </thead>
         <tbody id="resultBody">
-          <tr><td colspan="14" class="empty-state">在上方輸入股票代碼查詢，或從左側選擇投資組合</td></tr>
+          
         </tbody>
       </table>
     </div>
@@ -948,6 +949,7 @@ document.getElementById("activeProfileChips").addEventListener("click", e => {
 });
 
 loadProfiles();
+_showEmptyState("在上方輸入股票代碼查詢，或從左側選擇投資組合");
 
 /* ─── profiles fetch ─────────────────────────────────────── */
 async function loadProfiles() {
@@ -1004,8 +1006,7 @@ async function selectProfile(name) {
     renderRows(data.cache);
     updateSourceBadge(data.cache);
   } else {
-    document.getElementById("resultBody").innerHTML =
-      `<tr><td colspan="14" class="empty-state">尚未同步，請按「同步行情」</td></tr>`;
+    _showEmptyState("尚未同步，請按「同步行情」");
   }
 }
 
@@ -1190,8 +1191,7 @@ async function deleteProfile() {
   if (activeProfile === name) {
     activeProfile = null;
     document.getElementById("profileHeader").classList.remove("visible");
-    document.getElementById("resultBody").innerHTML =
-      `<tr><td colspan="14" class="empty-state">在上方輸入股票代碼查詢，或從左側選擇投資組合</td></tr>`;
+    _showEmptyState("在上方輸入股票代碼查詢，或從左側選擇投資組合");
     updateTopbarProfileLabel();
   }
   renderSidebar();
@@ -1230,8 +1230,18 @@ async function adhocAnalyze() {
 }
 
 /* ─── render helpers ─────────────────────────────────────── */
+function _showEmptyState(msg) {
+  document.getElementById("resultBody").innerHTML = "";
+  document.getElementById("resultTableWrap").style.display = "none";
+  const el = document.getElementById("emptyMsg");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
 function renderRows(results) {
   currentResults = results;
+  document.getElementById("resultTableWrap").style.display = "";
+  document.getElementById("emptyMsg").style.display = "none";
   document.getElementById("resultBody").innerHTML = results.map((r, i) => {
     if (r.error) return `
       <tr>

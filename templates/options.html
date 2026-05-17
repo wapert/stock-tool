@@ -53,7 +53,7 @@
     thead th {
       background:var(--bg2); color:var(--muted); font-weight:600;
       padding:0.55rem 0.75rem; text-align:left; white-space:nowrap;
-      border-bottom:2px solid var(--border); position:sticky; top:50px;
+      border-bottom:2px solid var(--border);
     }
     thead th .sub { display:block; font-size:0.68rem; font-weight:400;
                     color:var(--dim); letter-spacing:0.04em; }
@@ -121,6 +121,26 @@
     html.theme-lightyellow .ivr-hi{ background:#f4b8b1; }
     html.theme-lightyellow .ivr-mid{ background:#f3d4a6; }
     html.theme-lightyellow .ivr-lo{ background:#b3e4bf; }
+
+    .chart-btn { background:none; border:1px solid var(--border); border-radius:5px;
+                 color:var(--muted); cursor:pointer; font-size:.82rem; padding:.15rem .35rem; }
+    .chart-btn:hover { border-color:var(--blue); color:var(--blue); }
+    .oi-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200;
+                  display:none; align-items:center; justify-content:center; }
+    .oi-overlay.open { display:flex; }
+    .oi-modal { background:var(--bg2); border:1px solid var(--border); border-radius:12px;
+                width:min(820px,95vw); max-height:90vh; display:flex; flex-direction:column; overflow:hidden; }
+    .oi-header { display:flex; align-items:center; gap:.75rem; padding:.8rem 1.1rem; border-bottom:1px solid var(--border); }
+    .oi-header h2 { font-size:.95rem; font-weight:700; color:var(--blue); flex:1; }
+    .oi-close { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; padding:.2rem .4rem; border-radius:4px; }
+    .oi-close:hover { color:var(--text); background:var(--bg3); }
+    .oi-controls { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; padding:.6rem 1.1rem; border-bottom:1px solid var(--border); background:var(--bg); }
+    .oi-expiry { padding:.3rem .7rem; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:.82rem; outline:none; }
+    .oi-tabs { display:flex; gap:.4rem; }
+    .oi-tab { padding:.28rem .8rem; border-radius:6px; border:1px solid var(--border); background:none; color:var(--muted); cursor:pointer; font-size:.82rem; font-weight:600; }
+    .oi-tab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .oi-info { font-size:.75rem; color:var(--dim); margin-left:auto; }
+    .oi-body { flex:1; overflow:auto; padding:1rem 1.1rem; min-height:300px; }
   </style>
 </head>
 <body>
@@ -173,9 +193,8 @@
   </div>
 </div>
 
-<div class="table-wrap">
-  <div class="spinner" id="spinner"><div class="spinner-ring"></div></div>
-  <table id="optTable" style="display:none">
+<div id="optWrap" class="table-wrap">
+  <table id="optTable">
     <thead>
       <tr>
         <th>代碼<span class="sub">Symbol</span></th>
@@ -190,6 +209,7 @@
         <th>P/C Vol<span class="sub">賣/買比</span></th>
         <th>預期波動<span class="sub">Expected Move ±1σ</span></th>
         <th>取得時間<span class="sub">Fetched</span></th>
+        <th style="width:36px;"></th>
       </tr>
     </thead>
     <tbody id="optBody"></tbody>
@@ -237,7 +257,7 @@ function renderRow(r) {
   if (r.error) return `
     <tr class="err-row">
       <td class="sym">${esc(r.symbol)}</td>
-      <td colspan="11" style="color:var(--red)">${esc(r.error)}</td>
+      <td colspan="12" style="color:var(--red)">${esc(r.error)}</td>
     </tr>`;
 
   const chgCls  = r.change  >= 0 ? "pos" : "neg";
@@ -265,29 +285,22 @@ function renderRow(r) {
     <td><span class="${pcClass(r.pc_ratio)}">${r.pc_ratio_fmt}</span></td>
     <td>${expMoveHtml(r)}</td>
     <td style="color:var(--dim);font-size:.75rem">${r.fetched_at || "—"}</td>
+    <td><button class="chart-btn" data-sym="${esc(r.symbol)}" onclick="openOIChart(this.dataset.sym)" title="OI分佈圖">📊</button></td>
   </tr>`;
 }
 
 async function fetchAndRender(url) {
-  document.getElementById("spinner").style.display = "block";
-  document.getElementById("optTable").style.display = "none";
-
   try {
     const res  = await fetch(url);
     const data = await res.json();
     const rows = data.results || [data];
-
     document.getElementById("optBody").innerHTML = rows.map(renderRow).join("");
-    document.getElementById("optTable").style.display = "table";
     document.getElementById("fetchInfo").textContent =
       `共 ${rows.filter(r=>!r.error).length} 筆 · ${new Date().toLocaleTimeString("zh-TW")}`;
     updateOptSourceBadge(rows);
   } catch(e) {
     document.getElementById("optBody").innerHTML =
-      `<tr><td colspan="11" style="color:var(--red);padding:2rem;text-align:center">載入失敗：${e.message}</td></tr>`;
-    document.getElementById("optTable").style.display = "table";
-  } finally {
-    document.getElementById("spinner").style.display = "none";
+      `<tr><td colspan="12" style="color:var(--red);padding:2rem;text-align:center">載入失敗：${e.message}</td></tr>`;
   }
 }
 
@@ -371,8 +384,100 @@ function esc(s) {
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-// Load default watchlist on page open
+/* ── OI Chart functions ── */
+let _oiSym="", _oiTab="oi", _oiData=null, _oiChart=null;
+
+function openOIChart(sym) {
+  _oiSym=sym; _oiTab="oi";
+  document.getElementById("tabOI").classList.add("active");
+  document.getElementById("tabVol").classList.remove("active");
+  document.getElementById("oiOverlay").classList.add("open");
+  document.getElementById("oiTitle").textContent=sym+" — Options Distribution";
+  loadOIChart(sym,"");
+}
+function closeOIChart() {
+  document.getElementById("oiOverlay").classList.remove("open");
+  if(_oiChart){_oiChart.destroy();_oiChart=null;}
+}
+function switchOITab(tab) {
+  _oiTab=tab;
+  document.getElementById("tabOI").classList.toggle("active",tab==="oi");
+  document.getElementById("tabVol").classList.toggle("active",tab==="vol");
+  if(_oiData) renderOIChart(_oiData);
+}
+async function loadOIChart(sym,expiry) {
+  document.getElementById("oiInfo").textContent="載入中…";
+  if(_oiChart){_oiChart.destroy();_oiChart=null;}
+  try {
+    const url=`/options/oi?symbol=${sym}${expiry?"&expiry="+expiry:""}`;
+    const data=await fetch(url).then(r=>r.json());
+    if(data.error){document.getElementById("oiInfo").textContent=data.error;return;}
+    _oiData=data;
+    const sel=document.getElementById("oiExpiry");
+    sel.innerHTML=data.expirations.map(e=>`<option value="${e}" ${e===data.expiry?"selected":""}>${e}</option>`).join("");
+    renderOIChart(data);
+  } catch(e){document.getElementById("oiInfo").textContent="錯誤: "+e.message;}
+}
+function renderOIChart(data) {
+  if(typeof Chart==="undefined"){document.getElementById("oiInfo").textContent="Chart.js 尚未載入";return;}
+  if(_oiChart){_oiChart.destroy();_oiChart=null;}
+  const isOI=_oiTab==="oi";
+  const callY=isOI?data.call_oi:data.call_vol;
+  const putY =isOI?data.put_oi :data.put_vol;
+  let info=`現價: $${data.price!=null?data.price.toFixed(2):"—"}`;
+  if(data.max_pain) info+=`  |  Max Pain: $${data.max_pain.toFixed(2)}`;
+  document.getElementById("oiInfo").textContent=info;
+  const isDark=!document.documentElement.className.includes("theme-white")&&
+               !document.documentElement.className.includes("theme-lightblue")&&
+               !document.documentElement.className.includes("theme-lightyellow");
+  const gc=isDark?"rgba(255,255,255,.08)":"rgba(0,0,0,.08)";
+  const lc=isDark?"#8b949e":"#57606a";
+  const ctx=document.getElementById("oiCanvas").getContext("2d");
+  _oiChart=new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels:data.strikes.map(s=>"$"+s.toFixed(0)),
+      datasets:[
+        {label:"Call "+(isOI?"OI":"Vol"),data:callY,backgroundColor:"rgba(63,185,80,.75)",borderColor:"#3fb950",borderWidth:1},
+        {label:"Put " +(isOI?"OI":"Vol"),data:putY, backgroundColor:"rgba(248,81,73,.65)",borderColor:"#f85149",borderWidth:1},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:lc}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString()}`}}
+      },
+      scales:{
+        x:{ticks:{color:lc,maxRotation:45},grid:{color:gc}},
+        y:{ticks:{color:lc,callback:v=>v>=1e6?v/1e6+"M":v>=1e3?v/1e3+"K":v},grid:{color:gc}}
+      }
+    }
+  });
+}
+
 loadDefaults();
 </script>
+
+<!-- OI Chart Modal -->
+<div class="oi-overlay" id="oiOverlay" onclick="if(event.target===this)closeOIChart()">
+  <div class="oi-modal">
+    <div class="oi-header">
+      <h2 id="oiTitle">Open Interest</h2>
+      <button class="oi-close" onclick="closeOIChart()">✕</button>
+    </div>
+    <div class="oi-controls">
+      <select class="oi-expiry" id="oiExpiry" onchange="loadOIChart(_oiSym,this.value)"></select>
+      <div class="oi-tabs">
+        <button class="oi-tab active" id="tabOI"  onclick="switchOITab('oi')">Open Interest</button>
+        <button class="oi-tab"        id="tabVol" onclick="switchOITab('vol')">Volume</button>
+      </div>
+      <span class="oi-info" id="oiInfo"></span>
+    </div>
+    <div class="oi-body"><canvas id="oiCanvas"></canvas></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </body>
 </html>
