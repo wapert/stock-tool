@@ -493,6 +493,38 @@
     }
     .col-sep { border-left: 1px solid var(--bg3); }
 
+    /* ── MA Chart button ── */
+    .ma-btn { background:none; border:1px solid var(--border); border-radius:5px;
+              color:var(--muted); cursor:pointer; font-size:.8rem;
+              padding:.12rem .3rem; margin-top:.2rem; display:block; width:100%; }
+    .ma-btn:hover { border-color:var(--green); color:var(--green); }
+
+    /* ── MA Chart modal ── */
+    .ma-overlay { position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:300;
+                  display:none; align-items:center; justify-content:center; }
+    .ma-overlay.open { display:flex; }
+    .ma-modal  { background:var(--bg2); border:1px solid var(--border); border-radius:12px;
+                 width:min(900px,96vw); max-height:92vh; display:flex; flex-direction:column; overflow:hidden; }
+    .ma-header { display:flex; align-items:center; gap:.6rem; padding:.75rem 1rem;
+                 border-bottom:1px solid var(--border); }
+    .ma-header h2 { font-size:.95rem; font-weight:700; color:var(--blue); flex:1; }
+    .ma-close  { background:none; border:none; color:var(--muted); cursor:pointer;
+                 font-size:1.1rem; padding:.2rem .45rem; border-radius:4px; }
+    .ma-close:hover { color:var(--text); background:var(--bg3); }
+    .ma-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+                   padding:.55rem 1rem; border-bottom:1px solid var(--border); background:var(--bg); }
+    .ma-period { display:flex; gap:.3rem; }
+    .ma-period button { padding:.25rem .6rem; border-radius:5px; border:1px solid var(--border);
+                        background:none; color:var(--muted); cursor:pointer; font-size:.78rem; font-weight:600; }
+    .ma-period button.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .ma-presets { display:flex; gap:.35rem; flex-wrap:wrap; }
+    .ma-preset  { padding:.28rem .75rem; border-radius:6px; border:1px solid var(--border);
+                  background:none; color:var(--muted); cursor:pointer; font-size:.78rem; font-weight:600;
+                  white-space:nowrap; }
+    .ma-preset.active { background:var(--bg3); color:var(--text); border-color:var(--muted); }
+    .ma-info   { font-size:.72rem; color:var(--dim); margin-left:auto; }
+    .ma-body   { flex:1; min-height:320px; padding:.75rem 1rem; position:relative; }
+
     /* chips & badges */
     .symbol-badge {
       display: inline-block;
@@ -1277,6 +1309,7 @@ function renderRows(results) {
       <td class="td-comment">${escHtml(r.comment)}</td>
       <td style="text-align:center;">
         <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})">▼</button>
+        <button class="ma-btn" onclick="openMAChart('${escHtml(r.symbol)}',${r.is_taiwan?'true':'false'})">📈</button>
       </td>
     </tr>
     <tr class="detail-row" id="detail-${i}" style="display:none">
@@ -1821,6 +1854,133 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/static/sw.js")
       .catch(err => console.warn("SW registration failed:", err));
+  });
+}
+</script>
+
+<!-- ── MA Chart Modal ── -->
+<div class="ma-overlay" id="maOverlay" onclick="if(event.target===this)closeMAChart()">
+  <div class="ma-modal">
+    <div class="ma-header">
+      <h2 id="maTitle">📈 MA Chart</h2>
+      <button class="ma-close" onclick="closeMAChart()">✕</button>
+    </div>
+    <div class="ma-controls">
+      <div class="ma-period" id="maPeriodBtns">
+        <button onclick="setMAPeriod('1mo')" data-p="1mo">1M</button>
+        <button onclick="setMAPeriod('3mo')" data-p="3mo">3M</button>
+        <button onclick="setMAPeriod('6mo')" data-p="6mo" class="active">6M</button>
+        <button onclick="setMAPeriod('1y')"  data-p="1y">1Y</button>
+        <button onclick="setMAPeriod('2y')"  data-p="2y">2Y</button>
+      </div>
+      <div class="ma-presets" id="maPresetBtns"></div>
+      <span class="ma-info" id="maInfo"></span>
+    </div>
+    <div class="ma-body"><canvas id="maCanvas"></canvas></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const MA_PRESETS = [
+  { id:"us_momentum",   label:"🇺🇸 US Momentum",      desc:"8 EMA · 21 EMA · 50 SMA",
+    mas:[{k:"ema8",l:"EMA 8",c:"#ff9f40"},{k:"ema21",l:"EMA 21",c:"#36a2eb"},{k:"sma50",l:"SMA 50",c:"#4bc0c0"}] },
+  { id:"us_macro",      label:"🇺🇸 US Institutional",  desc:"50 SMA · 150 SMA · 200 SMA",
+    mas:[{k:"sma50",l:"SMA 50",c:"#4bc0c0"},{k:"sma150",l:"SMA 150",c:"#9966ff"},{k:"sma200",l:"SMA 200",c:"#ff6384"}] },
+  { id:"tw_short",      label:"🇹🇼 台股短線",           desc:"5 SMA · 10 SMA · 20 SMA",
+    mas:[{k:"sma5",l:"SMA 5",c:"#ff9f40"},{k:"sma10",l:"SMA 10",c:"#36a2eb"},{k:"sma20",l:"SMA 20",c:"#4bc0c0"}] },
+  { id:"tw_trend",      label:"🇹🇼 台股主力趨勢",       desc:"20 SMA · 60 SMA · 240 SMA",
+    mas:[{k:"sma20",l:"SMA 20",c:"#4bc0c0"},{k:"sma60",l:"SMA 60",c:"#9966ff"},{k:"sma240",l:"SMA 240",c:"#ff6384"}] },
+];
+
+let _maSym="", _maPeriod="6mo", _maPreset=null, _maChart=null, _maData=null;
+
+function openMAChart(sym, isTaiwan) {
+  _maSym = sym;
+  _maPeriod = "6mo";
+  // auto-select preset by market
+  const defaultPreset = isTaiwan ? "tw_short" : "us_momentum";
+  _maPreset = MA_PRESETS.find(p => p.id === defaultPreset);
+  document.getElementById("maTitle").textContent = "📈 " + sym + " — MA Chart";
+  document.getElementById("maOverlay").classList.add("open");
+  _buildPresetBtns();
+  _setActivePeriod("6mo");
+  loadMAChart();
+}
+function closeMAChart() {
+  document.getElementById("maOverlay").classList.remove("open");
+  if(_maChart){ _maChart.destroy(); _maChart=null; }
+}
+function setMAPeriod(p) {
+  _maPeriod = p;
+  _setActivePeriod(p);
+  loadMAChart();
+}
+function _setActivePeriod(p) {
+  document.querySelectorAll("#maPeriodBtns button").forEach(b => {
+    b.classList.toggle("active", b.dataset.p === p);
+  });
+}
+function selectMAPreset(id) {
+  _maPreset = MA_PRESETS.find(p => p.id === id);
+  document.querySelectorAll(".ma-preset").forEach(b =>
+    b.classList.toggle("active", b.dataset.id === id));
+  if(_maData) renderMAChart(_maData);
+}
+function _buildPresetBtns() {
+  const wrap = document.getElementById("maPresetBtns");
+  wrap.innerHTML = MA_PRESETS.map(p =>
+    `<button class="ma-preset${_maPreset&&_maPreset.id===p.id?' active':''}"
+      data-id="${p.id}" onclick="selectMAPreset('${p.id}')"
+      title="${p.desc}">${p.label}</button>`
+  ).join("");
+}
+async function loadMAChart() {
+  document.getElementById("maInfo").textContent = "載入中…";
+  if(_maChart){ _maChart.destroy(); _maChart=null; }
+  try {
+    const data = await fetch(`/chart/ma?symbol=${_maSym}&period=${_maPeriod}`).then(r=>r.json());
+    if(data.error){ document.getElementById("maInfo").textContent = data.error; return; }
+    _maData = data;
+    renderMAChart(data);
+  } catch(e) { document.getElementById("maInfo").textContent = "錯誤: "+e.message; }
+}
+function renderMAChart(data) {
+  if(typeof Chart==="undefined"){ document.getElementById("maInfo").textContent="Chart.js 尚未載入"; return; }
+  if(_maChart){ _maChart.destroy(); _maChart=null; }
+  const preset = _maPreset || MA_PRESETS[0];
+  const isDark = !document.documentElement.className.match(/theme-(white|lightblue|lightyellow)/);
+  const gc = isDark?"rgba(255,255,255,.06)":"rgba(0,0,0,.07)";
+  const lc = isDark?"#8b949e":"#57606a";
+  const last = data.close[data.close.length-1];
+  document.getElementById("maInfo").textContent =
+    `${data.dates[data.dates.length-1]}  收盤: ${last}  (${data.close.length} 個交易日)`;
+  const datasets = [
+    { label:"收盤價", data:data.close, borderColor:"#e6edf3",
+      backgroundColor:"rgba(88,166,255,.08)", fill:true,
+      borderWidth:1.5, pointRadius:0, tension:0.3, order:10 },
+    ...preset.mas.map(m => ({
+      label: m.l, data: data.mas[m.k],
+      borderColor: m.c, borderWidth:1.8,
+      pointRadius:0, tension:0.3, spanGaps:true, order:1
+    }))
+  ];
+  const ctx = document.getElementById("maCanvas").getContext("2d");
+  _maChart = new Chart(ctx, {
+    type:"line",
+    data:{ labels:data.dates, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:"index", intersect:false },
+      plugins:{
+        legend:{ labels:{ color:lc, boxWidth:14, font:{size:11} } },
+        tooltip:{ callbacks:{ label:c=>`${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(2):"—"}` } }
+      },
+      scales:{
+        x:{ ticks:{ color:lc, maxTicksLimit:10, maxRotation:0 }, grid:{ color:gc } },
+        y:{ position:"right", ticks:{ color:lc, callback:v=>v.toFixed(0) }, grid:{ color:gc } }
+      }
+    }
   });
 }
 </script>

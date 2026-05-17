@@ -263,6 +263,56 @@ def options_oi():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/chart/ma")
+def chart_ma():
+    import yfinance as yf
+    sym    = request.args.get("symbol", "").strip().upper()
+    period = request.args.get("period", "6mo").strip()
+    if not sym:
+        return jsonify({"error": "symbol required"}), 400
+    valid_periods = {"1mo","3mo","6mo","1y","2y"}
+    if period not in valid_periods:
+        period = "6mo"
+    try:
+        ticker = yf.Ticker(sym)
+        hist   = ticker.history(period=period)
+        if hist.empty:
+            return jsonify({"error": f"No price history for {sym}"}), 404
+        close  = [round(float(v), 2) for v in hist["Close"]]
+        dates  = [d.strftime("%Y-%m-%d") for d in hist.index]
+
+        def sma(arr, n):
+            out = []
+            for i in range(len(arr)):
+                out.append(round(sum(arr[max(0,i-n+1):i+1]) / min(i+1,n), 2) if i >= n-1 else None)
+            return out
+
+        def ema(arr, n):
+            k, out = 2/(n+1), []
+            for i, v in enumerate(arr):
+                out.append(round(v if i==0 else v*k + out[-1]*(1-k), 2))
+            return out
+
+        return jsonify({
+            "symbol": sym, "period": period,
+            "dates":  dates,
+            "close":  close,
+            "mas": {
+                "ema8":   ema(close, 8),
+                "ema21":  ema(close, 21),
+                "sma5":   sma(close, 5),
+                "sma10":  sma(close, 10),
+                "sma20":  sma(close, 20),
+                "sma50":  sma(close, 50),
+                "sma60":  sma(close, 60),
+                "sma150": sma(close, 150),
+                "sma200": sma(close, 200),
+                "sma240": sma(close, 240),
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/options/single")
 def options_single():
     sym = request.args.get("symbol", "").strip().upper()
