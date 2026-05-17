@@ -495,8 +495,8 @@
 
     /* ── MA Chart button ── */
     .ma-btn { background:none; border:1px solid var(--border); border-radius:5px;
-              color:var(--muted); cursor:pointer; font-size:.8rem;
-              padding:.12rem .3rem; margin-top:.2rem; display:block; width:100%; }
+              color:var(--muted); cursor:pointer; font-size:.75rem;
+              padding:.1rem .35rem; margin-top:.25rem; display:inline-block; }
     .ma-btn:hover { border-color:var(--green); color:var(--green); }
 
     /* ── MA Chart modal ── */
@@ -1291,7 +1291,9 @@ function renderRows(results) {
           ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
         </span>
       </td>
-      <td>${upsideHtml(r.upside_pct, r.target_price_fmt)}</td>
+      <td>${upsideHtml(r.upside_pct, r.target_price_fmt)}
+        <button class="ma-btn" onclick="openMAChart('${escHtml(r.symbol)}',${r.is_taiwan?'true':'false'})">📈 MA</button>
+      </td>
       <td class="col-sep pe">${r.forward_pe_fmt}</td>
       <td>${pegHtml(r.peg_fmt, r.peg_ratio)}</td>
       <td class="col-sep"><span class="rsi-chip ${rsiClass(r.rsi)}">${r.rsi_fmt}</span></td>
@@ -1309,7 +1311,6 @@ function renderRows(results) {
       <td class="td-comment">${escHtml(r.comment)}</td>
       <td style="text-align:center;">
         <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})">▼</button>
-        <button class="ma-btn" onclick="openMAChart('${escHtml(r.symbol)}',${r.is_taiwan?'true':'false'})">📈</button>
       </td>
     </tr>
     <tr class="detail-row" id="detail-${i}" style="display:none">
