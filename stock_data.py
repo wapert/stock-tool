@@ -170,9 +170,13 @@ def calculate_rsi(prices, period=14):
     delta = prices.diff()
     gain = delta.where(delta > 0, 0).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    g, l = gain.iloc[-1], loss.iloc[-1]
+    if g == 0 and l == 0:
+        return None   # no price movement in window — can't compute RSI
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
-    return round(float(rsi.iloc[-1]), 1)
+    val = float(rsi.iloc[-1])
+    return round(val, 1) if val == val else None  # guard NaN
 
 
 def calculate_macd(prices):
@@ -252,11 +256,14 @@ def get_analyst_stats(ticker, info):
         summary = ticker.recommendations_summary
         if summary is not None and not summary.empty:
             latest = summary.iloc[0]
-            strong_buy  = int(latest.get("strongBuy", 0))
-            buy         = int(latest.get("buy", 0))
-            hold        = int(latest.get("hold", 0))
-            sell        = int(latest.get("sell", 0))
-            strong_sell = int(latest.get("strongSell", 0))
+            def _safe_int(v, default=0):
+                try: return int(v) if v == v else default  # v==v is False for NaN
+                except (TypeError, ValueError): return default
+            strong_buy  = _safe_int(latest.get("strongBuy",  0))
+            buy         = _safe_int(latest.get("buy",         0))
+            hold        = _safe_int(latest.get("hold",        0))
+            sell        = _safe_int(latest.get("sell",        0))
+            strong_sell = _safe_int(latest.get("strongSell",  0))
             total = strong_buy + buy + hold + sell + strong_sell
             if total > 0:
                 buy_pct = round((strong_buy + buy) / total * 100, 0)
@@ -530,6 +537,11 @@ def analyze_stock(symbol: str) -> dict:
                         hist = get_tw_history(_tw_code, days=180)
                     except Exception:
                         hist = pd.DataFrame()
+                # Detect stale Shioaji data: if last 15 Close values are all the same, fall back
+                if hist is not None and not (hasattr(hist, 'empty') and hist.empty):
+                    tail_vals = hist["Close"].tail(15)
+                    if len(tail_vals) >= 15 and tail_vals.nunique() == 1:
+                        hist = pd.DataFrame()   # force yfinance fallback
                 if hist is None or (hasattr(hist, 'empty') and hist.empty):
                     hist = ticker.history(period="6mo")
             if not hist.empty:
@@ -621,7 +633,7 @@ def analyze_stock(symbol: str) -> dict:
             "target_price_fmt": _fmt_price(target_price, currency) if target_price else "N/A",
             "forward_pe_fmt": f"{forward_pe:.0f}x" if forward_pe else "N/A",
             "rsi": rsi,
-            "rsi_fmt": str(int(rsi)) if rsi is not None else "N/A",
+            "rsi_fmt": str(int(rsi)) if (rsi is not None and rsi == rsi) else "N/A",
             "recommendation": recommendation,
             "comment": comment,
             "upside_pct": round(upside_pct, 1),
@@ -644,8 +656,8 @@ def analyze_stock(symbol: str) -> dict:
             "buy_pct": buy_pct,
             "analyst_fmt": (
                 f"{int(n_analysts)}人 / {int(buy_pct)}%買"
-                if n_analysts and buy_pct is not None else
-                (f"{int(n_analysts)}人" if n_analysts else "N/A")
+                if (n_analysts and n_analysts == n_analysts and buy_pct is not None and buy_pct == buy_pct) else
+                (f"{int(n_analysts)}人" if (n_analysts and n_analysts == n_analysts) else "N/A")
             ),
             "rating_change": rating_change,
             # ── new indicators ──────────────────────────────────
