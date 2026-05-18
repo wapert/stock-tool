@@ -306,6 +306,25 @@
       cursor: pointer; text-align: center;
     }
     .card-more-btn:active { background: var(--bg3); }
+    /* ── Mobile news section ── */
+    .m-news-section { padding:.5rem .75rem .4rem; border-top:1px solid var(--border); }
+    .m-news-title   { font-size:.65rem; font-weight:700; color:var(--dim);
+                      text-transform:uppercase; letter-spacing:.05em; margin-bottom:.35rem; }
+    .m-news-item    { display:flex; align-items:baseline; gap:.35rem;
+                      padding:.25rem 0; border-bottom:1px solid var(--bg3); font-size:.76rem; }
+    .m-news-item:last-child { border-bottom:none; }
+    .m-news-item a  { flex:1; color:var(--text); text-decoration:none;
+                      overflow:hidden; display:-webkit-box;
+                      -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .m-news-item a:active { color:var(--blue); }
+    .m-news-meta    { display:flex; flex-direction:column; align-items:flex-end;
+                      gap:.1rem; flex-shrink:0; }
+    .m-news-src     { font-size:.62rem; color:var(--dim); background:var(--bg3);
+                      border-radius:3px; padding:.02rem .28rem; white-space:nowrap; }
+    .m-news-time    { font-size:.62rem; color:var(--dim); white-space:nowrap; }
+    .m-news-loading { display:flex; align-items:center; gap:.35rem;
+                      font-size:.74rem; color:var(--dim); }
+
     .ma-card-btn {
       width:100%; background:none; border:none; border-top:1px solid var(--bg3);
       color:var(--green); font-size:.8rem; font-weight:600; padding:.42rem;
@@ -1020,7 +1039,7 @@ function renderCards(results) {
         <div class="card-comment">${esc(r.comment)}</div>
 
         <button class="card-more-btn" onclick="toggleExtra(${i})">▼ 更多指標</button>
-        <div class="card-extra" id="extra-${i}">
+        <div class="card-extra" id="extra-${i}" data-sym="${esc(r.display_symbol||r.symbol)}">
           <div class="extra-grid">
             <div class="metric"><span class="metric-label">前瞻PE</span><span class="metric-val" style="color:var(--purple)">${r.forward_pe_fmt}</span></div>
             <div class="metric"><span class="metric-label">PEG</span><span class="metric-val ${pegCls(r.peg_ratio)}">${r.peg_fmt}</span></div>
@@ -1065,6 +1084,9 @@ function renderCards(results) {
               <span class="metric-val ${(r.debt_equity||99)<=0.5?"pos":(r.debt_equity||99)<=1.5?"":"neg"}">${r.debt_equity_fmt}</span>
             </div>
           </div>
+          <div class="m-news-section" id="mnews-${esc(r.display_symbol||r.symbol)}">
+            <div class="m-news-loading"><div class="spinner-ring" style="width:13px;height:13px;border-width:2px;display:inline-block;"></div>&nbsp;載入新聞…</div>
+          </div>
         </div>
         <button class="ma-card-btn" onclick="openMAChart('${esc(r.symbol)}',${r.is_taiwan?'true':'false'},'${esc(r.company_name)}')">📈 MA 均線圖</button>
       </div>`;
@@ -1076,6 +1098,43 @@ function toggleExtra(i) {
   const btn = el.previousElementSibling;
   const open = el.classList.toggle("open");
   btn.textContent = open ? "▲ 收起" : "▼ 更多指標";
+  if (open) loadMobileNews(el.dataset.sym);
+}
+
+/* ── Mobile news loader ── */
+const _mNewsLoaded = new Set();
+async function loadMobileNews(sym) {
+  if (!sym || _mNewsLoaded.has(sym)) return;
+  const el = document.getElementById(`mnews-${sym}`);
+  if (!el) return;
+  _mNewsLoaded.add(sym);
+  try {
+    const data = await fetch(`/news?symbol=${encodeURIComponent(sym)}`).then(r => r.json());
+    if (!data.articles || !data.articles.length) {
+      el.innerHTML = `<div class="m-news-title">📰 相關新聞</div><span style="font-size:.74rem;color:var(--dim);">暫無新聞</span>`;
+      return;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const fmtTime = ts => {
+      if (!ts) return "";
+      const diff = now - ts;
+      if (diff < 3600)  return Math.floor(diff/60) + "分鐘前";
+      if (diff < 86400) return Math.floor(diff/3600) + "小時前";
+      return Math.floor(diff/86400) + "天前";
+    };
+    el.innerHTML = `
+      <div class="m-news-title">📰 相關新聞</div>
+      ${data.articles.map(a => `
+        <div class="m-news-item">
+          <a href="${a.url}" target="_blank" rel="noopener">${a.title}</a>
+          <div class="m-news-meta">
+            <span class="m-news-src">${a.source}</span>
+            <span class="m-news-time">${fmtTime(a.time)}</span>
+          </div>
+        </div>`).join("")}`;
+  } catch(e) {
+    el.innerHTML = `<span style="font-size:.74rem;color:var(--red);">新聞載入失敗</span>`;
+  }
 }
 
 /* ── helpers ── */
