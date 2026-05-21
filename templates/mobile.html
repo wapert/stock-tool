@@ -325,6 +325,12 @@
     .m-news-loading { display:flex; align-items:center; gap:.35rem;
                       font-size:.74rem; color:var(--dim); }
 
+    /* ── Sortable metric rectangles ── */
+    .sort-metric { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .sort-metric:active { background:var(--bg3) !important; }
+    .sort-sym-area { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .sort-price-area { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+
     /* ── Mobile stock autocomplete ── */
     .m-ac-wrap  { position:relative; flex:1; }
     .m-ac-drop  { position:absolute; top:calc(100% + 3px); left:0; right:0;
@@ -978,10 +984,61 @@ async function importFileToProfile(inp) {
 }
 
 /* ── render cards ── */
+/* ── Mobile column sort ── */
+let _mSortCol = null, _mSortDir = 'desc';
+const _M_REC_ORDER = {'強力買入':6,'買入':5,'持有':4,'低配':3,'賣出':2,'強力賣出':1};
+
+function _mGetSortVal(r, col) {
+  switch(col) {
+    case 'symbol':   return (r.display_symbol||r.symbol||'').toUpperCase();
+    case 'price':    return r.current_price;
+    case 'chg':      return r.day_chg_pct;
+    case 'upside':   return r.upside_pct;
+    case 'rsi':      return r.rsi;
+    case 'macd':     return r.macd_bullish===true?1:r.macd_bullish===false?0:-1;
+    case '52w':      return r.pct_from_52w_high;
+    case 'earnings': return r.next_earnings_ts;
+    case 'pe':       return r.forward_pe;
+    case 'peg':      return r.peg_ratio;
+    case 'rev':      return r.rev_growth;
+    case 'analyst':  return r.buy_pct;
+    case 'rec':      return _M_REC_ORDER[r.recommendation||'']||0;
+    default:         return null;
+  }
+}
+function _mApplySortOrder(results) {
+  if (!_mSortCol) return results;
+  return [...results].sort((a,b) => {
+    if (a.error && !b.error) return 1;
+    if (!a.error && b.error) return -1;
+    if (a.error && b.error)  return 0;
+    const va = _mGetSortVal(a,_mSortCol), vb = _mGetSortVal(b,_mSortCol);
+    if (va==null && vb==null) return 0;
+    if (va==null) return 1; if (vb==null) return -1;
+    const cmp = typeof va==='string'
+      ? va.localeCompare(vb,undefined,{sensitivity:'base'})
+      : va - vb;
+    return _mSortDir==='desc' ? -cmp : cmp;
+  });
+}
+function mSortByCol(col) {
+  if (_mSortCol===col) _mSortDir = _mSortDir==='desc'?'asc':'desc';
+  else { _mSortCol=col; _mSortDir=col==='symbol'?'asc':'desc'; }
+  if (currentResults && currentResults.length) renderResults(currentResults);
+}
+function _mSortIcon(col) {
+  if (_mSortCol!==col) return '';
+  return _mSortDir==='desc'
+    ? '<span style="color:var(--blue);font-size:.65rem;"> ▼</span>'
+    : '<span style="color:var(--blue);font-size:.65rem;"> ▲</span>';
+}
+
 /* ── View mode toggle ── */
 let _viewMode = localStorage.getItem("mobileViewMode") || "card"; // "card" | "list"
 function renderResults(results) {
-  _viewMode === "list" ? renderListView(results) : renderCards(results);
+  currentResults = results;                          // keep original unsorted
+  const sorted = _mApplySortOrder(results);
+  _viewMode === "list" ? renderListView(sorted) : renderCards(sorted);
   buildIndexBar(results);
 }
 
@@ -1013,9 +1070,7 @@ function toggleViewMode() {
   _viewMode = _viewMode === "card" ? "list" : "card";
   localStorage.setItem("mobileViewMode", _viewMode);
   _updateViewToggleBtn();
-  if (currentResults && currentResults.length) {
-    _viewMode === "list" ? renderListView(currentResults) : renderCards(currentResults);
-  }
+  if (currentResults && currentResults.length) renderResults(currentResults);
 }
 function _updateViewToggleBtn() {
   const btn = document.getElementById("viewToggleBtn");
@@ -1030,7 +1085,6 @@ function _updateViewToggleBtn() {
 }
 
 function renderListView(results) {
-  currentResults = results;
   const list = document.getElementById("cardList");
   if (!results.length) { list.innerHTML=`<div class="empty-state">無資料</div>`; return; }
   list.innerHTML = `<div class="list-view-wrap">` + results.map(r => {
@@ -1050,7 +1104,6 @@ function renderListView(results) {
 }
 
 function renderCards(results) {
-  currentResults = results;
   const list = document.getElementById("cardList");
   if (!results.length) { list.innerHTML=`<div class="empty-state">無資料</div>`; return; }
   list.innerHTML = results.map((r,i) => {
@@ -1068,39 +1121,39 @@ function renderCards(results) {
     return `
       <div class="card" id="card-${esc(r.display_symbol||r.symbol)}" data-initial="${_ini}">
         <div class="card-top">
-          <span class="symbol-badge">${esc(r.display_symbol||r.symbol)}</span>${r.is_taiwan?" 🇹🇼":""}
+          <span class="symbol-badge sort-sym-area" onclick="mSortByCol('symbol')">${esc(r.display_symbol||r.symbol)}${_mSortIcon('symbol')}</span>${r.is_taiwan?" 🇹🇼":""}
           <div class="card-names">
             <div class="card-company">${esc(r.company_name)}</div>
           </div>
-          <span class="rec-badge ${recClass(r.recommendation)}">${r.recommendation}</span>
+          <span class="rec-badge ${recClass(r.recommendation)} sort-metric" onclick="mSortByCol('rec')">${r.recommendation}${_mSortIcon('rec')}</span>
           ${r.rating_change ? `<span title="${esc(r.rating_change.summary)}" style="font-size:.65rem;font-weight:700;
             color:${r.rating_change.kind==='up'?'#3fb950':r.rating_change.kind==='down'?'#f85149':'#58a6ff'};">
             ${esc(r.rating_change.label)}</span>` : ''}
         </div>
 
-        <div class="card-price">
+        <div class="card-price sort-price-area" onclick="mSortByCol('chg')">
           <span class="price-now">${r.current_price_fmt}</span>${mPriceArrow(r.symbol, r.current_price)}
           <span style="font-size:.85rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.day_chg_pct>=0?'#3fb950':'#f85149'};">
-            ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
+            ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})${_mSortIcon('chg')}
           </span>
-          <span class="price-target ${upCls}">${r.target_price_fmt} ${upTxt}</span>
+          <span class="price-target ${upCls}" onclick="event.stopPropagation();mSortByCol('upside')">${r.target_price_fmt} ${upTxt}${_mSortIcon('upside')}</span>
         </div>
 
         <div class="metrics">
-          <div class="metric">
-            <span class="metric-label">RSI</span>
+          <div class="metric sort-metric" onclick="mSortByCol('rsi')">
+            <span class="metric-label">RSI${_mSortIcon('rsi')}</span>
             <span class="metric-val ${rsiCls(r.rsi)}">${r.rsi_fmt}</span>
           </div>
-          <div class="metric">
-            <span class="metric-label">MACD</span>
+          <div class="metric sort-metric" onclick="mSortByCol('macd')">
+            <span class="metric-label">MACD${_mSortIcon('macd')}</span>
             <span class="metric-val ${r.macd_bullish?"macd-bull":"macd-bear"}">${r.macd_label||"N/A"}</span>
           </div>
-          <div class="metric">
-            <span class="metric-label">距52W高</span>
+          <div class="metric sort-metric" onclick="mSortByCol('52w')">
+            <span class="metric-label">距52W高${_mSortIcon('52w')}</span>
             <span class="metric-val ${(r.pct_from_52w_high||0)>=0?"pos":"neg"}">${r.pct_from_52w_high_fmt}</span>
           </div>
-          <div class="metric">
-            <span class="metric-label">財報日</span>
+          <div class="metric sort-metric" onclick="mSortByCol('earnings')">
+            <span class="metric-label">財報日${_mSortIcon('earnings')}</span>
             <span class="metric-val" style="color:#79c0ff">${r.next_earnings_fmt}</span>
           </div>
         </div>
@@ -1110,10 +1163,10 @@ function renderCards(results) {
         <button class="card-more-btn" onclick="toggleExtra(${i})">▼ 更多指標</button>
         <div class="card-extra" id="extra-${i}" data-sym="${esc(r.display_symbol||r.symbol)}">
           <div class="extra-grid">
-            <div class="metric"><span class="metric-label">前瞻PE</span><span class="metric-val" style="color:var(--purple)">${r.forward_pe_fmt}</span></div>
-            <div class="metric"><span class="metric-label">PEG</span><span class="metric-val ${pegCls(r.peg_ratio)}">${r.peg_fmt}</span></div>
-            <div class="metric"><span class="metric-label">營收YoY</span><span class="metric-val ${(r.rev_growth||0)>=0?"pos":"neg"}">${r.rev_growth_fmt}</span></div>
-            <div class="metric"><span class="metric-label">分析師/買入</span><span class="metric-val ${buyCls(r.buy_pct)}">${r.analyst_fmt}</span></div>
+            <div class="metric sort-metric" onclick="mSortByCol('pe')"><span class="metric-label">前瞻PE${_mSortIcon('pe')}</span><span class="metric-val" style="color:var(--purple)">${r.forward_pe_fmt}</span></div>
+            <div class="metric sort-metric" onclick="mSortByCol('peg')"><span class="metric-label">PEG${_mSortIcon('peg')}</span><span class="metric-val ${pegCls(r.peg_ratio)}">${r.peg_fmt}</span></div>
+            <div class="metric sort-metric" onclick="mSortByCol('rev')"><span class="metric-label">營收YoY${_mSortIcon('rev')}</span><span class="metric-val ${(r.rev_growth||0)>=0?"pos":"neg"}">${r.rev_growth_fmt}</span></div>
+            <div class="metric sort-metric" onclick="mSortByCol('analyst')"><span class="metric-label">分析師/買入${_mSortIcon('analyst')}</span><span class="metric-val ${buyCls(r.buy_pct)}">${r.analyst_fmt}</span></div>
           </div>
           <div class="extra-grid" style="margin-top:1px;">
             <div class="metric">
