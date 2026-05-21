@@ -1941,7 +1941,7 @@ applyTheme(localStorage.getItem("theme") || "dark");
 // ── Column sort ──────────────────────────────────────────────────────────────
 let _sortCol = null, _sortDir = 'desc';
 
-const _REC_ORDER = {'strong_buy':5,'buy':4,'hold':3,'underperform':2,'sell':1};
+const _REC_ORDER = {'強力買入':5,'買入':4,'持有':3,'賣出':2,'強力賣出':1};
 
 function _getSortVal(r, col) {
   switch(col) {
@@ -1956,7 +1956,7 @@ function _getSortVal(r, col) {
     case 'earnings': return r.next_earnings_ts;
     case 'rev':      return r.rev_growth;
     case 'analyst':  return r.buy_pct;
-    case 'rec':      return _REC_ORDER[(r.recommendation||'').toLowerCase()] || 0;
+    case 'rec':      return _REC_ORDER[r.recommendation||''] || 0;
     default:         return null;
   }
 }
