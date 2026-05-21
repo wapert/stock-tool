@@ -2006,7 +2006,9 @@ function _updateSortIndicators() {
 }
 
 // ── Stock Autocomplete ────────────────────────────────────────────────────────
-let _acStatic = null, _acTimer = null, _acIdx = -1;
+let _acStatic = null, _twAcStatic = null, _acTimer = null, _acIdx = -1;
+
+function _hasChinese(s) { return /[一-鿿]/.test(s); }
 
 async function _loadStatic() {
   if (_acStatic) return _acStatic;
@@ -2015,27 +2017,49 @@ async function _loadStatic() {
   return _acStatic;
 }
 
+async function _loadTWStatic() {
+  if (_twAcStatic) return _twAcStatic;
+  try { _twAcStatic = await fetch("/static/tw_stocks.json").then(r=>r.json()); }
+  catch { _twAcStatic = []; }
+  return _twAcStatic;
+}
+
 async function acOnInput(val) {
-  const q = val.trim().toUpperCase();
-  if (!q) { acClose(); return; }
+  const raw = val.trim();
+  if (!raw) { acClose(); return; }
 
-  // 1. Instant local filter
-  const local = await _loadStatic();
-  const matches = local.filter(s =>
-    s.s.startsWith(q) || s.n.toUpperCase().includes(q)
-  ).slice(0, 6);
-  _acRender(matches, true);
-
-  // 2. Debounced Yahoo search
-  clearTimeout(_acTimer);
-  _acTimer = setTimeout(async () => {
-    try {
-      const yahoo = await fetch(`/search/stocks?q=${encodeURIComponent(q)}`).then(r=>r.json());
-      const localSyms = new Set(matches.map(s=>s.s));
-      const extra = yahoo.filter(s=>!localSyms.has(s.s)).slice(0, 4);
-      _acRender([...matches, ...extra], false);
-    } catch {}
-  }, 300);
+  if (_hasChinese(raw)) {
+    // Taiwan stock search by Chinese name
+    const twList = await _loadTWStatic();
+    const matches = twList.filter(s => s.n.includes(raw)).slice(0, 6);
+    _acRender(matches, true);
+    clearTimeout(_acTimer);
+    _acTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/search/tw_stocks?q=${encodeURIComponent(raw)}`).then(r=>r.json());
+        const localSyms = new Set(matches.map(s=>s.s));
+        const extra = res.filter(s=>!localSyms.has(s.s)).slice(0, 4);
+        _acRender([...matches, ...extra], false);
+      } catch {}
+    }, 300);
+  } else {
+    // US / TW symbol search
+    const q = raw.toUpperCase();
+    const local = await _loadStatic();
+    const matches = local.filter(s =>
+      s.s.startsWith(q) || s.n.toUpperCase().includes(q)
+    ).slice(0, 6);
+    _acRender(matches, true);
+    clearTimeout(_acTimer);
+    _acTimer = setTimeout(async () => {
+      try {
+        const yahoo = await fetch(`/search/stocks?q=${encodeURIComponent(q)}`).then(r=>r.json());
+        const localSyms = new Set(matches.map(s=>s.s));
+        const extra = yahoo.filter(s=>!localSyms.has(s.s)).slice(0, 4);
+        _acRender([...matches, ...extra], false);
+      } catch {}
+    }, 300);
+  }
 }
 
 function _acRender(items, loading) {

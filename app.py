@@ -300,6 +300,42 @@ def search_stocks():
     _cache.set(f"stocksearch:{q}", results, ttl=3600)
     return jsonify(results)
 
+@app.route("/search/tw_stocks")
+def search_tw_stocks():
+    import urllib.request, json as _json
+    from urllib.parse import quote
+    q = request.args.get("q", "").strip()
+    if len(q) < 1:
+        return jsonify([])
+    cached = _cache.get(f"twsearch:{q}")
+    if cached:
+        return jsonify(cached)
+    results = []
+    seen = set()
+    try:
+        url = (f"https://query2.finance.yahoo.com/v1/finance/search"
+               f"?q={quote(q)}&quotesCount=10&newsCount=0"
+               f"&enableFuzzyQuery=false&region=TW&lang=zh-TW")
+        req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})
+        data = _json.loads(urllib.request.urlopen(req, timeout=4).read())
+        for item in data.get("quotes", []):
+            sym = item.get("symbol","")
+            typ = item.get("quoteType","")
+            if not sym or typ not in ("EQUITY","ETF","MUTUALFUND"):
+                continue
+            # Keep only TW/TWO listed stocks (4-digit numeric prefix)
+            bare = re.sub(r'\.(TW[O]?)$', '', sym, flags=re.IGNORECASE)
+            if not re.match(r'^\d{4,6}$', bare):
+                continue
+            name = item.get("longname") or item.get("shortname") or bare
+            if bare not in seen:
+                seen.add(bare)
+                results.append({"s": bare, "n": name})
+    except Exception:
+        pass
+    _cache.set(f"twsearch:{q}", results, ttl=3600)
+    return jsonify(results)
+
 @app.route("/news")
 def stock_news():
     import yfinance as yf

@@ -1224,7 +1224,9 @@ function toggleExtra(i) {
 }
 
 /* ── Mobile stock autocomplete ── */
-let _mAcStatic=null, _mAcTimer=null, _mAcIdx=-1;
+let _mAcStatic=null, _mTwAcStatic=null, _mAcTimer=null, _mAcIdx=-1;
+
+function _mHasChinese(s) { return /[一-鿿]/.test(s); }
 
 async function _mLoadStatic() {
   if (_mAcStatic) return _mAcStatic;
@@ -1233,23 +1235,49 @@ async function _mLoadStatic() {
   return _mAcStatic;
 }
 
+async function _mLoadTWStatic() {
+  if (_mTwAcStatic) return _mTwAcStatic;
+  try { _mTwAcStatic = await fetch("/static/tw_stocks.json").then(r=>r.json()); }
+  catch { _mTwAcStatic = []; }
+  return _mTwAcStatic;
+}
+
 async function mAcOnInput(val) {
-  const q = val.trim().toUpperCase();
-  if (!q) { mAcClose(); return; }
-  const local = await _mLoadStatic();
-  const matches = local.filter(s =>
-    s.s.startsWith(q) || s.n.toUpperCase().includes(q)
-  ).slice(0, 5);
-  _mAcRender(matches);
-  clearTimeout(_mAcTimer);
-  _mAcTimer = setTimeout(async () => {
-    try {
-      const yahoo = await fetch(`/search/stocks?q=${encodeURIComponent(q)}`).then(r=>r.json());
-      const localSyms = new Set(matches.map(s=>s.s));
-      const extra = yahoo.filter(s=>!localSyms.has(s.s)).slice(0, 3);
-      _mAcRender([...matches, ...extra]);
-    } catch {}
-  }, 300);
+  const raw = val.trim();
+  if (!raw) { mAcClose(); return; }
+
+  if (_mHasChinese(raw)) {
+    // Taiwan stock search by Chinese name
+    const twList = await _mLoadTWStatic();
+    const matches = twList.filter(s => s.n.includes(raw)).slice(0, 5);
+    _mAcRender(matches);
+    clearTimeout(_mAcTimer);
+    _mAcTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/search/tw_stocks?q=${encodeURIComponent(raw)}`).then(r=>r.json());
+        const localSyms = new Set(matches.map(s=>s.s));
+        const extra = res.filter(s=>!localSyms.has(s.s)).slice(0, 3);
+        _mAcRender([...matches, ...extra]);
+      } catch {}
+    }, 300);
+  } else {
+    // US / TW symbol search
+    const q = raw.toUpperCase();
+    const local = await _mLoadStatic();
+    const matches = local.filter(s =>
+      s.s.startsWith(q) || s.n.toUpperCase().includes(q)
+    ).slice(0, 5);
+    _mAcRender(matches);
+    clearTimeout(_mAcTimer);
+    _mAcTimer = setTimeout(async () => {
+      try {
+        const yahoo = await fetch(`/search/stocks?q=${encodeURIComponent(q)}`).then(r=>r.json());
+        const localSyms = new Set(matches.map(s=>s.s));
+        const extra = yahoo.filter(s=>!localSyms.has(s.s)).slice(0, 3);
+        _mAcRender([...matches, ...extra]);
+      } catch {}
+    }, 300);
+  }
 }
 
 function _mAcRender(items) {
