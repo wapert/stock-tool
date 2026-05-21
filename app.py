@@ -263,6 +263,43 @@ def options_oi():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/search/stocks")
+def search_stocks():
+    import urllib.request, json as _json
+    from urllib.parse import quote
+    q = request.args.get("q", "").strip().upper()
+    if len(q) < 1:
+        return jsonify([])
+    cached = _cache.get(f"stocksearch:{q}")
+    if cached:
+        return jsonify(cached)
+    results = []
+    seen = set()
+    try:
+        url = (f"https://query2.finance.yahoo.com/v1/finance/search"
+               f"?q={quote(q)}&quotesCount=10&newsCount=0"
+               f"&enableFuzzyQuery=false&region=US&lang=en-US")
+        req = urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})
+        data = _json.loads(urllib.request.urlopen(req, timeout=4).read())
+        for item in data.get("quotes", []):
+            sym = item.get("symbol","")
+            typ = item.get("quoteType","")
+            ex  = item.get("exchange","") or item.get("exchDisp","")
+            # Keep US equities and ETFs; skip options, bonds, foreign markets
+            if not sym or typ not in ("EQUITY","ETF","MUTUALFUND"):
+                continue
+            # Filter out obviously non-US: TW, HK, LSE, etc.
+            if any(sym.endswith(x) for x in (".TW",".TWO",".HK",".L",".PA",".DE",".T")):
+                continue
+            name = item.get("longname") or item.get("shortname") or sym
+            if sym not in seen:
+                seen.add(sym)
+                results.append({"s": sym, "n": name})
+    except Exception:
+        pass
+    _cache.set(f"stocksearch:{q}", results, ttl=3600)
+    return jsonify(results)
+
 @app.route("/news")
 def stock_news():
     import yfinance as yf

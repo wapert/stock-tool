@@ -325,6 +325,21 @@
     .m-news-loading { display:flex; align-items:center; gap:.35rem;
                       font-size:.74rem; color:var(--dim); }
 
+    /* ── Mobile stock autocomplete ── */
+    .m-ac-wrap  { position:relative; flex:1; }
+    .m-ac-drop  { position:absolute; top:calc(100% + 3px); left:0; right:0;
+                  background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+                  box-shadow:0 6px 18px rgba(0,0,0,.45); z-index:300;
+                  max-height:210px; overflow-y:auto; display:none; }
+    .m-ac-drop.open { display:block; }
+    .m-ac-item  { display:flex; align-items:center; gap:.5rem;
+                  padding:.45rem .75rem; cursor:pointer; }
+    .m-ac-item:active,.m-ac-item.active { background:var(--bg3); }
+    .m-ac-sym   { font-weight:700; color:var(--blue); font-size:.85rem;
+                  min-width:3.5rem; white-space:nowrap; }
+    .m-ac-name  { font-size:.76rem; color:var(--muted); overflow:hidden;
+                  text-overflow:ellipsis; white-space:nowrap; flex:1; }
+
     /* ── Section index bar ── */
     .idx-bar {
       position: fixed; right: 3px;
@@ -608,8 +623,15 @@
     <div id="mSrcBadge" style="display:none;padding:0 0.75rem 0.4rem;font-size:0.72rem;font-weight:600;"></div>
     <div class="chip-wrap" id="chipWrap"></div>
     <div class="chip-add-wrap">
-      <input id="addStockInput" placeholder="加入股票（如 AAPL）" maxlength="10"
-             onkeydown="if(event.key==='Enter')addStock()"/>
+      <div class="m-ac-wrap">
+        <input id="addStockInput" placeholder="加入股票（如 AAPL）" maxlength="12"
+               autocomplete="off"
+               oninput="mAcOnInput(this.value)"
+               onkeydown="mAcOnKey(event)"
+               onfocus="mAcOnInput(this.value)"
+               onblur="setTimeout(()=>mAcClose(),180)"/>
+        <div class="m-ac-drop" id="mAcDrop"></div>
+      </div>
       <button class="btn btn-blue btn-sm" onclick="addStock()">加入</button>
       <button class="btn btn-ghost btn-sm"
               onclick="document.getElementById('importFile').click()">📂</button>
@@ -1146,6 +1168,76 @@ function toggleExtra(i) {
   const open = el.classList.toggle("open");
   btn.textContent = open ? "▲ 收起" : "▼ 更多指標";
   if (open) loadMobileNews(el.dataset.sym);
+}
+
+/* ── Mobile stock autocomplete ── */
+let _mAcStatic=null, _mAcTimer=null, _mAcIdx=-1;
+
+async function _mLoadStatic() {
+  if (_mAcStatic) return _mAcStatic;
+  try { _mAcStatic = await fetch("/static/us_stocks_top.json").then(r=>r.json()); }
+  catch { _mAcStatic = []; }
+  return _mAcStatic;
+}
+
+async function mAcOnInput(val) {
+  const q = val.trim().toUpperCase();
+  if (!q) { mAcClose(); return; }
+  const local = await _mLoadStatic();
+  const matches = local.filter(s =>
+    s.s.startsWith(q) || s.n.toUpperCase().includes(q)
+  ).slice(0, 5);
+  _mAcRender(matches);
+  clearTimeout(_mAcTimer);
+  _mAcTimer = setTimeout(async () => {
+    try {
+      const yahoo = await fetch(`/search/stocks?q=${encodeURIComponent(q)}`).then(r=>r.json());
+      const localSyms = new Set(matches.map(s=>s.s));
+      const extra = yahoo.filter(s=>!localSyms.has(s.s)).slice(0, 3);
+      _mAcRender([...matches, ...extra]);
+    } catch {}
+  }, 300);
+}
+
+function _mAcRender(items) {
+  const drop = document.getElementById("mAcDrop");
+  if (!drop) return;
+  _mAcIdx = -1;
+  if (!items.length) { mAcClose(); return; }
+  drop.innerHTML = items.map(item =>
+    `<div class="m-ac-item" data-sym="${esc(item.s)}" onmousedown="mAcSelect('${esc(item.s)}')">
+       <span class="m-ac-sym">${esc(item.s)}</span>
+       <span class="m-ac-name">${esc(item.n)}</span>
+     </div>`
+  ).join("");
+  drop.classList.add("open");
+}
+
+function mAcSelect(sym) {
+  const inp = document.getElementById("addStockInput");
+  if (inp) inp.value = sym;
+  mAcClose();
+  addStock();
+}
+
+function mAcClose() {
+  const drop = document.getElementById("mAcDrop");
+  if (drop) drop.classList.remove("open");
+  _mAcIdx = -1;
+}
+
+function mAcOnKey(e) {
+  const drop = document.getElementById("mAcDrop");
+  const items = drop ? [...drop.querySelectorAll(".m-ac-item")] : [];
+  if (e.key==="ArrowDown") { e.preventDefault(); _mAcIdx=Math.min(_mAcIdx+1,items.length-1); }
+  else if (e.key==="ArrowUp") { e.preventDefault(); _mAcIdx=Math.max(_mAcIdx-1,-1); }
+  else if (e.key==="Enter") {
+    if (_mAcIdx>=0 && items[_mAcIdx]) { e.preventDefault(); mAcSelect(items[_mAcIdx].dataset.sym); return; }
+    mAcClose(); return;
+  } else if (e.key==="Escape") { mAcClose(); return; }
+  else return;
+  items.forEach((el,i)=>el.classList.toggle("active",i===_mAcIdx));
+  if(items[_mAcIdx]) items[_mAcIdx].scrollIntoView({block:"nearest"});
 }
 
 /* ── Mobile news loader ── */

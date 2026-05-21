@@ -425,6 +425,24 @@
     .add-stock-wrap input:focus { border-color: var(--blue); }
     .add-stock-wrap input::placeholder { color: var(--dim); }
 
+    /* ── Stock autocomplete dropdown ── */
+    .ac-wrap { position: relative; }
+    .ac-drop  { position:absolute; top:calc(100% + 3px); left:0; min-width:260px;
+                background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+                box-shadow:0 6px 20px rgba(0,0,0,.4); z-index:200;
+                max-height:240px; overflow-y:auto; display:none; }
+    .ac-drop.open { display:block; }
+    .ac-item { display:flex; align-items:center; gap:.6rem;
+               padding:.42rem .75rem; cursor:pointer; }
+    .ac-item:hover,.ac-item.active { background:var(--bg3); }
+    .ac-sym  { font-weight:700; color:var(--blue); font-size:.85rem;
+               min-width:3.8rem; white-space:nowrap; }
+    .ac-name { font-size:.78rem; color:var(--muted); overflow:hidden;
+               text-overflow:ellipsis; white-space:nowrap; }
+    .ac-badge{ font-size:.65rem; color:var(--dim); background:var(--bg3);
+               border-radius:3px; padding:.05rem .3rem; margin-left:auto;
+               white-space:nowrap; flex-shrink:0; }
+
     /* ── spinner / error ── */
     .spinner {
       display: none;
@@ -903,8 +921,15 @@
       </div>
       <div class="stock-chips" id="activeProfileChips"></div>
       <div class="add-stock-wrap">
-        <input id="addStockInput" placeholder="加入股票（如 AAPL）" maxlength="10"
-               onkeydown="if(event.key==='Enter') addStockToProfile()" />
+        <div class="ac-wrap">
+          <input id="addStockInput" placeholder="加入股票（如 AAPL）" maxlength="12"
+                 autocomplete="off"
+                 oninput="acOnInput(this.value)"
+                 onkeydown="acOnKey(event)"
+                 onfocus="acOnInput(this.value)"
+                 onblur="setTimeout(()=>acClose(),180)" />
+          <div class="ac-drop" id="acDrop"></div>
+        </div>
         <button class="btn btn-blue" onclick="addStockToProfile()">加入</button>
         <button class="btn btn-ghost" onclick="document.getElementById('profileImportFile').click()"
                 title="從 CSV / TXT 檔案批次匯入股票代碼">📂 匯入清單</button>
@@ -1903,6 +1928,86 @@ document.getElementById("themePanel").addEventListener("click", e => {
   e.stopPropagation();
 });
 applyTheme(localStorage.getItem("theme") || "dark");
+
+// ── Stock Autocomplete ────────────────────────────────────────────────────────
+let _acStatic = null, _acTimer = null, _acIdx = -1;
+
+async function _loadStatic() {
+  if (_acStatic) return _acStatic;
+  try { _acStatic = await fetch("/static/us_stocks_top.json").then(r=>r.json()); }
+  catch { _acStatic = []; }
+  return _acStatic;
+}
+
+async function acOnInput(val) {
+  const q = val.trim().toUpperCase();
+  if (!q) { acClose(); return; }
+
+  // 1. Instant local filter
+  const local = await _loadStatic();
+  const matches = local.filter(s =>
+    s.s.startsWith(q) || s.n.toUpperCase().includes(q)
+  ).slice(0, 6);
+  _acRender(matches, true);
+
+  // 2. Debounced Yahoo search
+  clearTimeout(_acTimer);
+  _acTimer = setTimeout(async () => {
+    try {
+      const yahoo = await fetch(`/search/stocks?q=${encodeURIComponent(q)}`).then(r=>r.json());
+      const localSyms = new Set(matches.map(s=>s.s));
+      const extra = yahoo.filter(s=>!localSyms.has(s.s)).slice(0, 4);
+      _acRender([...matches, ...extra], false);
+    } catch {}
+  }, 300);
+}
+
+function _acRender(items, loading) {
+  const drop = document.getElementById("acDrop");
+  if (!drop) return;
+  _acIdx = -1;
+  if (!items.length && !loading) { acClose(); return; }
+  drop.innerHTML = items.map((item, i) =>
+    `<div class="ac-item" data-sym="${escHtml(item.s)}" onmousedown="acSelect('${escHtml(item.s)}')">
+       <span class="ac-sym">${escHtml(item.s)}</span>
+       <span class="ac-name">${escHtml(item.n)}</span>
+     </div>`
+  ).join("") + (loading && items.length===0 ? `<div style="padding:.4rem .75rem;font-size:.78rem;color:var(--dim)">搜尋中…</div>` : "");
+  drop.classList.add("open");
+}
+
+function acSelect(sym) {
+  const inp = document.getElementById("addStockInput");
+  if (inp) inp.value = sym;
+  acClose();
+  addStockToProfile();
+}
+
+function acClose() {
+  const drop = document.getElementById("acDrop");
+  if (drop) drop.classList.remove("open");
+  _acIdx = -1;
+}
+
+function acOnKey(e) {
+  const drop = document.getElementById("acDrop");
+  const items = drop ? [...drop.querySelectorAll(".ac-item")] : [];
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    _acIdx = Math.min(_acIdx+1, items.length-1);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    _acIdx = Math.max(_acIdx-1, -1);
+  } else if (e.key === "Enter") {
+    if (_acIdx >= 0 && items[_acIdx]) { e.preventDefault(); acSelect(items[_acIdx].dataset.sym); return; }
+    acClose();
+    return; // let addStockToProfile run via existing onkeydown
+  } else if (e.key === "Escape") {
+    acClose(); return;
+  } else { return; }
+  items.forEach((el,i) => el.classList.toggle("active", i===_acIdx));
+  if (items[_acIdx]) items[_acIdx].scrollIntoView({block:"nearest"});
+}
 
 // Register service worker for PWA
 if ("serviceWorker" in navigator) {
