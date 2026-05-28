@@ -362,6 +362,39 @@ def calculate_peter_lynch(info):
         return None
 
 
+_SIGNAL_SCORES = {
+    "⚡ Squeeze多":  3,
+    "🔼 趨勢轉多":  3,
+    "🏆 破52W高":   3,
+    "RSI脫離超賣":  2,
+    "突破MA50":      2,
+    "突破MA20":      1,
+    "近52W高":       1,
+    "⚡ 能量蓄積":  1,
+    "跌破MA20":     -2,
+    "RSI脫離超買":  -2,
+    "⚡ Squeeze空": -3,
+    "🔽 趨勢轉空": -3,
+}
+
+def calculate_momentum_score(signals):
+    """
+    Weighted composite score from -9 to +9 (typical range).
+    Positive = bullish momentum, Negative = bearish.
+    Volume surge adds +1 if any bull signal present, else neutral.
+    """
+    score = 0
+    has_bull = any(s["type"] == "bull" for s in signals)
+    for s in signals:
+        txt = s["text"]
+        # Volume surge: +1 only when accompanying bull signal
+        if txt.startswith("爆量"):
+            score += 1 if has_bull else 0
+            continue
+        score += _SIGNAL_SCORES.get(txt, 0)
+    return score
+
+
 def detect_movement_signals(hist, current_price, rsi, vol_ratio, week52_high):
     """
     Detect actionable movement signals for a stock.
@@ -425,7 +458,7 @@ def detect_movement_signals(hist, current_price, rsi, vol_ratio, week52_high):
     except Exception:
         pass
 
-    return signals[:4]   # cap at 4 signals per stock
+    return signals[:4]  # cap at 4 signals per stock
 
 
 def calculate_rsi_series(prices, period=14):
@@ -972,6 +1005,7 @@ def analyze_stock(symbol: str) -> dict:
             "lynch_upside_fmt":    (f"{lynch_upside:+.1f}%" if lynch_upside is not None else "N/A"),
             # ── Movement signals ──────────────────────────────────────────────
             "signals":          signals,
+            "momentum_score":   calculate_momentum_score(signals),
         }
 
     except Exception as e:

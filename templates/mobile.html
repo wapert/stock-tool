@@ -325,6 +325,16 @@
     .m-news-loading { display:flex; align-items:center; gap:.35rem;
                       font-size:.74rem; color:var(--dim); }
 
+    /* ── Momentum score badge ── */
+    .score-badge { display:inline-block; min-width:1.8rem; text-align:center;
+                   font-size:.65rem; font-weight:800; padding:.06rem .28rem;
+                   border-radius:4px; margin-right:.15rem; vertical-align:middle; }
+    .score-s3  { background:#071a10; color:#3fb950; border:1px solid #238636; }
+    .score-s2  { background:#0d2a1a; color:#3fb950; }
+    .score-s1  { background:#1a2b1a; color:#7ee787; }
+    .score-s0  { background:var(--bg3); color:var(--dim); }
+    .score-sm1 { background:#2d1515; color:#f85149; }
+    .score-sm2 { background:#3d1515; color:#f85149; }
     /* ── Signal chips ── */
     .sig-chip { display:inline-block; font-size:.65rem; font-weight:700;
                 padding:.08rem .3rem; border-radius:4px; white-space:nowrap; margin:.08rem .08rem 0 0; }
@@ -1003,6 +1013,13 @@ async function importFileToProfile(inp) {
 }
 
 /* ── render cards ── */
+/* ── Score badge ── */
+function mScoreBadge(sc) {
+  sc = sc || 0;
+  var cls = sc >= 6 ? "score-s3" : sc >= 3 ? "score-s2" : sc >= 1 ? "score-s1"
+          : sc === 0 ? "score-s0" : sc >= -2 ? "score-sm1" : "score-sm2";
+  return '<span class="score-badge ' + cls + '">' + (sc > 0 ? "+" : "") + sc + '</span>';
+}
 /* ── Fair value helpers ── */
 function mFvUp(val, upside, fmt) {
   if (!val) return '<span class="fv-mini-na">N/A</span>';
@@ -1160,7 +1177,7 @@ function renderCards(results) {
             <div class="card-company">${esc(r.company_name)}</div>
           </div>
           <span class="rec-badge ${recClass(r.recommendation)} sort-metric" onclick="mSortByCol('rec')">${r.recommendation}${_mSortIcon('rec')}</span>
-          ${(r.signals||[]).map(s=>`<span class="sig-chip sig-${s.type}">${s.text}</span>`).join("")}
+          ${(r.signals||[]).length ? mScoreBadge(r.momentum_score) + (r.signals||[]).map(s=>`<span class="sig-chip sig-${s.type}">${s.text}</span>`).join("") : ""}
           ${r.rating_change ? `<span title="${esc(r.rating_change.summary)}" style="font-size:.65rem;font-weight:700;
             color:${r.rating_change.kind==='up'?'#3fb950':r.rating_change.kind==='down'?'#f85149':'#58a6ff'};">
             ${esc(r.rating_change.label)}</span>` : ''}

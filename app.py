@@ -743,7 +743,7 @@ def scan_run():
         return jsonify({"error": str(e)}), 500
 
     from stock_data import (detect_movement_signals, calculate_rsi,
-                            calculate_volume_ratio)
+                            calculate_volume_ratio, calculate_momentum_score)
     results = []
 
     for sym in yf_tickers:
@@ -762,6 +762,7 @@ def scan_run():
             signals   = detect_movement_signals(hist, price, rsi, vol_ratio, w52h)
             if not signals:
                 continue
+            score   = calculate_momentum_score(signals)
             display = sym.replace(".TW","").replace(".TWO","")
             results.append({
                 "symbol":    display,
@@ -771,17 +772,14 @@ def scan_run():
                 "rsi":       round(rsi, 1) if rsi else None,
                 "vol_ratio": round(vol_ratio, 1) if vol_ratio else None,
                 "signals":   signals,
+                "score":     score,
                 "currency":  "TWD" if market == "TW" else "USD",
             })
         except Exception:
             continue
 
-    # Sort: most bull signals first, then warn, then total count
-    results.sort(key=lambda x: (
-        sum(1 for s in x["signals"] if s["type"] == "bull"),
-        sum(1 for s in x["signals"] if s["type"] == "warn"),
-        len(x["signals"])
-    ), reverse=True)
+    # Sort by momentum score descending
+    results.sort(key=lambda x: x["score"], reverse=True)
 
     payload = {
         "market":         market,

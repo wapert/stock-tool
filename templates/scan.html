@@ -94,6 +94,17 @@
     .sig-bear { background:#3d1515; color:var(--red); }
     .sig-warn { background:#2d1f0e; color:var(--yellow); }
 
+    /* momentum score badge */
+    .score-badge { display:inline-block; min-width:2.4rem; text-align:center;
+                   font-size:.82rem; font-weight:800; padding:.15rem .45rem;
+                   border-radius:6px; }
+    .score-s3  { background:#071a10; color:#3fb950; border:1px solid #238636; }  /* ≥6 */
+    .score-s2  { background:#0d2a1a; color:#3fb950; }  /* 3-5 */
+    .score-s1  { background:#1a2b1a; color:#7ee787; }  /* 1-2 */
+    .score-s0  { background:var(--bg3); color:var(--dim); }  /* 0 */
+    .score-sm1 { background:#2d1515; color:#f85149; }  /* -1 to -2 */
+    .score-sm2 { background:#3d1515; color:#f85149; }  /* ≤ -3 */
+
     /* spinner */
     .spinner-wrap { display:flex; justify-content:center; align-items:center;
                     gap:.75rem; padding:3rem; color:var(--muted); font-size:.9rem; }
@@ -166,7 +177,7 @@
   if (t !== "dark") document.documentElement.classList.add("theme-" + t);
 })();
 
-let _market = "US", _filter = "all", _results = [], _sortCol = "bull", _sortDir = "desc";
+let _market = "US", _filter = "all", _results = [], _sortCol = "score", _sortDir = "desc";
 
 function setMarket(m) {
   _market = m;
@@ -240,12 +251,13 @@ function renderResults(all) {
   // Sort
   const sorted = [...filtered].sort((a, b) => {
     let va, vb;
-    if (_sortCol === "bull")    { va = bullCount(a.signals); vb = bullCount(b.signals); }
-    else if (_sortCol === "chg")  { va = a.chg_pct; vb = b.chg_pct; }
-    else if (_sortCol === "rsi")  { va = a.rsi || 0; vb = b.rsi || 0; }
-    else if (_sortCol === "vol")  { va = a.vol_ratio || 0; vb = b.vol_ratio || 0; }
-    else if (_sortCol === "sym")  { va = a.symbol; vb = b.symbol; return _sortDir==="asc"?va.localeCompare(vb):vb.localeCompare(va); }
-    else                          { va = bullCount(a.signals); vb = bullCount(b.signals); }
+    if      (_sortCol === "score") { va = a.score||0;       vb = b.score||0; }
+    else if (_sortCol === "chg")   { va = a.chg_pct;        vb = b.chg_pct; }
+    else if (_sortCol === "rsi")   { va = a.rsi||0;         vb = b.rsi||0; }
+    else if (_sortCol === "vol")   { va = a.vol_ratio||0;   vb = b.vol_ratio||0; }
+    else if (_sortCol === "sym")   { va = a.symbol; vb = b.symbol;
+                                     return _sortDir==="asc"?va.localeCompare(vb):vb.localeCompare(va); }
+    else                           { va = a.score||0;       vb = b.score||0; }
     return _sortDir === "desc" ? vb - va : va - vb;
   });
 
@@ -261,11 +273,12 @@ function renderResults(all) {
     <table class="scan-table">
       <thead>
         <tr>
+          <th onclick="sortBy('score')">評分${_sortCol==='score'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th onclick="sortBy('sym')">股票代碼${_sortCol==='sym'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th onclick="sortBy('chg')">漲跌%${_sortCol==='chg'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th onclick="sortBy('rsi')">RSI${_sortCol==='rsi'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th onclick="sortBy('vol')">量比${_sortCol==='vol'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
-          <th onclick="sortBy('bull')">訊號${_sortCol==='bull'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+          <th>訊號</th>
         </tr>
       </thead>
       <tbody>
@@ -275,7 +288,12 @@ function renderResults(all) {
           const sigHtml = r.signals.map(s =>
             '<span class="sig-chip sig-' + s.type + '">' + s.text + '</span>'
           ).join("");
+          const sc = r.score || 0;
+          const scCls = sc >= 6 ? "score-s3" : sc >= 3 ? "score-s2" : sc >= 1 ? "score-s1"
+                      : sc === 0 ? "score-s0" : sc >= -2 ? "score-sm1" : "score-sm2";
+          const scTxt = (sc > 0 ? "+" : "") + sc;
           return `<tr>
+            <td><span class="score-badge ${scCls}">${scTxt}</span></td>
             <td class="sym-cell">
               <span class="sym">${r.symbol}</span>
               <span class="co">${r.name}</span>
