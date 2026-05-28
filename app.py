@@ -675,6 +675,124 @@ def sync_profile(name):
     return jsonify({"results": results, "last_sync": profiles[name]["last_sync"]})
 
 
+_TW_SCAN_LIST = [
+    {"s":"2330","n":"台積電"},{"s":"2317","n":"鴻海"},{"s":"2454","n":"聯發科"},
+    {"s":"2303","n":"聯電"},{"s":"2308","n":"台達電"},{"s":"2881","n":"富邦金"},
+    {"s":"2882","n":"國泰金"},{"s":"2412","n":"中華電"},{"s":"2002","n":"中鋼"},
+    {"s":"1301","n":"台塑"},{"s":"1303","n":"南亞"},{"s":"1326","n":"台化"},
+    {"s":"2886","n":"兆豐金"},{"s":"2884","n":"玉山金"},{"s":"2891","n":"中信金"},
+    {"s":"2892","n":"第一金"},{"s":"5880","n":"合庫金"},{"s":"2885","n":"元大金"},
+    {"s":"2887","n":"台新金"},{"s":"2883","n":"開發金"},
+    {"s":"3711","n":"日月光投控"},{"s":"3008","n":"大立光"},{"s":"2379","n":"瑞昱"},
+    {"s":"2344","n":"華邦電"},{"s":"3034","n":"聯詠"},{"s":"2382","n":"廣達"},
+    {"s":"2357","n":"華碩"},{"s":"2353","n":"宏碁"},{"s":"2376","n":"技嘉"},
+    {"s":"2395","n":"研華"},{"s":"3045","n":"台灣大"},{"s":"4904","n":"遠傳"},
+    {"s":"2609","n":"陽明海運"},{"s":"2603","n":"長榮"},{"s":"2615","n":"萬海"},
+    {"s":"1101","n":"台泥"},{"s":"1216","n":"統一"},{"s":"2912","n":"統一超"},
+    {"s":"6505","n":"台塑化"},{"s":"2327","n":"國巨"},{"s":"3037","n":"欣興"},
+    {"s":"2049","n":"上銀"},{"s":"6669","n":"緯穎"},{"s":"4938","n":"和碩"},
+    {"s":"2408","n":"南亞科"},{"s":"3231","n":"緯創"},{"s":"2409","n":"友達"},
+    {"s":"3481","n":"群創"},{"s":"2207","n":"和泰車"},{"s":"9910","n":"豐泰"},
+    {"s":"2301","n":"光寶科"},{"s":"6415","n":"矽力-KY"},{"s":"6414","n":"樺漢"},
+    {"s":"3443","n":"創意"},{"s":"2356","n":"英業達"},{"s":"2337","n":"旺宏"},
+    {"s":"2360","n":"致茂"},{"s":"2385","n":"群光"},{"s":"2439","n":"美律"},
+    {"s":"3702","n":"大聯大"},{"s":"2301","n":"光寶科"},{"s":"4958","n":"臻鼎-KY"},
+    {"s":"2392","n":"正崴"},{"s":"3006","n":"晶豪科"},{"s":"3088","n":"艾訊"},
+    {"s":"2388","n":"威盛"},{"s":"0050","n":"元大台灣50 ETF"},{"s":"0056","n":"元大高股息 ETF"},
+    {"s":"00631L","n":"元大台灣50正2 ETF"},{"s":"00663L","n":"國泰台灣加權正2 ETF"},
+]
+
+@app.route("/scan")
+def scan_page():
+    if _is_mobile():
+        return render_template("scan.html")   # same template, responsive
+    return render_template("scan.html")
+
+@app.route("/scan/run")
+def scan_run():
+    import yfinance as yf
+    import json as _json
+
+    market = request.args.get("market", "US").upper()
+    cache_key = f"scan:{market}"
+    cached = _cache.get(cache_key)
+    if cached:
+        return jsonify(cached)
+
+    # Build ticker list
+    if market == "TW":
+        stock_list = _TW_SCAN_LIST
+        yf_tickers = [s["s"] + ".TW" for s in stock_list]
+        name_map   = {s["s"] + ".TW": s["n"] for s in stock_list}
+    else:
+        static_path = os.path.join(os.path.dirname(__file__), "static", "us_stocks_top.json")
+        with open(static_path) as f:
+            us_list = _json.load(f)
+        stock_list  = us_list[:150]     # top 150 by popularity
+        yf_tickers  = [s["s"] for s in stock_list]
+        name_map    = {s["s"]: s["n"] for s in stock_list}
+
+    # Batch download — one call for all tickers
+    try:
+        raw = yf.download(
+            yf_tickers, period="6mo",
+            group_by="ticker", auto_adjust=True,
+            threads=True, progress=False
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    from stock_data import (detect_movement_signals, calculate_rsi,
+                            calculate_volume_ratio)
+    results = []
+
+    for sym in yf_tickers:
+        try:
+            hist = raw[sym].dropna(how="all") if len(yf_tickers) > 1 else raw
+            if hist is None or len(hist) < 25:
+                continue
+            closes  = hist["Close"]
+            volumes = hist.get("Volume")
+            price   = float(closes.iloc[-1])
+            prev    = float(closes.iloc[-2])
+            chg_pct = round((price - prev) / prev * 100, 2)
+            rsi       = calculate_rsi(closes)
+            vol_ratio = calculate_volume_ratio(volumes) if volumes is not None else None
+            w52h      = float(closes.tail(252).max())
+            signals   = detect_movement_signals(hist, price, rsi, vol_ratio, w52h)
+            if not signals:
+                continue
+            display = sym.replace(".TW","").replace(".TWO","")
+            results.append({
+                "symbol":    display,
+                "name":      name_map.get(sym, sym),
+                "price":     round(price, 2),
+                "chg_pct":   chg_pct,
+                "rsi":       round(rsi, 1) if rsi else None,
+                "vol_ratio": round(vol_ratio, 1) if vol_ratio else None,
+                "signals":   signals,
+                "currency":  "TWD" if market == "TW" else "USD",
+            })
+        except Exception:
+            continue
+
+    # Sort: most bull signals first, then warn, then total count
+    results.sort(key=lambda x: (
+        sum(1 for s in x["signals"] if s["type"] == "bull"),
+        sum(1 for s in x["signals"] if s["type"] == "warn"),
+        len(x["signals"])
+    ), reverse=True)
+
+    payload = {
+        "market":         market,
+        "total_scanned":  len(yf_tickers),
+        "hits":           len(results),
+        "results":        results,
+        "ts":             int(time.time()),
+    }
+    _cache.set(cache_key, payload, ttl=1800)   # cache 30 min
+    return jsonify(payload)
+
 @app.route("/cache/stats")
 def cache_stats():
     from stock_data import _hist_cache

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>股票掃描 — 動能訊號</title>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149;
+      --yellow:#e3b341; --orange:#f0883e; --purple:#d2a8ff;
+    }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC",sans-serif;
+           background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* ── topbar ── */
+    .topbar { display:flex; align-items:center; gap:.75rem; padding:0 1.25rem;
+              height:50px; background:var(--bg2); border-bottom:1px solid var(--border);
+              position:sticky; top:0; z-index:10; }
+    .topbar h1 { font-size:1rem; font-weight:700; color:var(--blue); white-space:nowrap; }
+    .nav-link  { color:var(--muted); font-size:.82rem; text-decoration:none;
+                 padding:.3rem .7rem; border:1px solid var(--border); border-radius:6px; }
+    .nav-link:hover { color:var(--text); border-color:var(--muted); }
+
+    /* ── toolbar ── */
+    .toolbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+               padding:.65rem 1.25rem; background:var(--bg2);
+               border-bottom:1px solid var(--border); }
+
+    /* Market toggle */
+    .mkt-toggle { display:flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+    .mkt-btn    { padding:.35rem .85rem; background:none; border:none; cursor:pointer;
+                  font-size:.85rem; font-weight:600; color:var(--muted); }
+    .mkt-btn.active { background:var(--blue); color:#fff; }
+
+    /* Signal filter chips */
+    .filter-chips { display:flex; gap:.35rem; flex-wrap:wrap; flex:1; }
+    .f-chip { padding:.28rem .7rem; border-radius:20px; border:1px solid var(--border);
+              background:none; color:var(--muted); cursor:pointer;
+              font-size:.78rem; font-weight:600; white-space:nowrap; }
+    .f-chip.active { border-color:var(--blue); color:var(--blue); background:#1f6feb22; }
+
+    /* Scan button */
+    .btn-scan { padding:.38rem 1.1rem; border-radius:6px; border:none;
+                background:#238636; color:#fff; font-size:.88rem;
+                font-weight:700; cursor:pointer; white-space:nowrap; }
+    .btn-scan:hover   { background:#2ea043; }
+    .btn-scan:disabled{ opacity:.45; cursor:default; }
+
+    .scan-meta { font-size:.72rem; color:var(--dim); margin-left:auto; white-space:nowrap; }
+
+    /* ── results ── */
+    .content { padding:1rem 1.25rem 2rem; }
+    .empty-msg { text-align:center; color:var(--muted); padding:3rem 1rem; font-size:.9rem; }
+
+    /* result table */
+    .scan-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    .scan-table thead th {
+      background:var(--bg2); color:var(--muted); font-weight:600;
+      padding:.5rem .75rem; text-align:left; white-space:nowrap;
+      border-bottom:2px solid var(--border); cursor:pointer;
+      user-select:none;
+    }
+    .scan-table thead th:hover { color:var(--text); }
+    .scan-table tbody tr { border-bottom:1px solid var(--bg3); transition:background .1s; }
+    .scan-table tbody tr:hover { background:var(--bg2); }
+    .scan-table tbody td { padding:.55rem .75rem; vertical-align:middle; white-space:nowrap; }
+    .sort-icon { font-size:.7em; color:var(--blue); margin-left:.2em; }
+
+    /* cells */
+    .sym-cell .sym  { font-weight:700; color:var(--blue); }
+    .sym-cell .co   { font-size:.7rem; color:var(--muted); display:block; }
+    .pos { color:var(--green); font-weight:600; }
+    .neg { color:var(--red);   font-weight:600; }
+    .na  { color:var(--dim); }
+    .price-cell { font-weight:600; }
+
+    /* rsi chip */
+    .rsi-chip { display:inline-block; padding:.1rem .38rem; border-radius:4px;
+                font-size:.78rem; font-weight:700; }
+    .rsi-hot  { background:#3d1515; color:var(--red); }
+    .rsi-cold { background:#0d2a1a; color:var(--green); }
+    .rsi-norm { color:var(--muted); }
+
+    /* signal chips */
+    .sig-wrap { display:flex; gap:.25rem; flex-wrap:wrap; }
+    .sig-chip { display:inline-block; font-size:.68rem; font-weight:700;
+                padding:.1rem .38rem; border-radius:4px; white-space:nowrap; }
+    .sig-bull { background:#0d2a1a; color:var(--green); }
+    .sig-bear { background:#3d1515; color:var(--red); }
+    .sig-warn { background:#2d1f0e; color:var(--yellow); }
+
+    /* spinner */
+    .spinner-wrap { display:flex; justify-content:center; align-items:center;
+                    gap:.75rem; padding:3rem; color:var(--muted); font-size:.9rem; }
+    .spinner-ring { width:24px; height:24px; border:2px solid var(--border);
+                    border-top-color:var(--blue); border-radius:50%;
+                    animation:spin .75s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* themes */
+    html.theme-white {
+      --bg:#ffffff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f;
+    }
+    html.theme-lightblue {
+      --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0;
+    }
+    html.theme-lightyellow {
+      --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318;
+    }
+
+    /* responsive */
+    @media (max-width:640px) {
+      .topbar { padding:0 .75rem; }
+      .toolbar { padding:.5rem .75rem; }
+      .content { padding:.75rem; }
+      .scan-table td:nth-child(3),
+      .scan-table th:nth-child(3) { display:none; }  /* hide vol ratio on small screens */
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🔍 動能掃描</h1>
+  <a class="nav-link" href="/">← 投資組合</a>
+  <a class="nav-link" href="/market">📊 市場</a>
+  <a class="nav-link" href="/options">📋 選擇權</a>
+</div>
+
+<div class="toolbar">
+  <!-- Market toggle -->
+  <div class="mkt-toggle">
+    <button class="mkt-btn active" id="mktUS" onclick="setMarket('US')">🇺🇸 US</button>
+    <button class="mkt-btn"        id="mktTW" onclick="setMarket('TW')">🇹🇼 TW</button>
+  </div>
+
+  <!-- Signal filter -->
+  <div class="filter-chips" id="filterChips">
+    <button class="f-chip active" data-f="all"       onclick="setFilter('all')">全部</button>
+    <button class="f-chip"        data-f="squeeze"   onclick="setFilter('squeeze')">⚡ Squeeze</button>
+    <button class="f-chip"        data-f="supertrend"onclick="setFilter('supertrend')">🔼 趨勢翻轉</button>
+    <button class="f-chip"        data-f="ma"        onclick="setFilter('ma')">📈 MA突破</button>
+    <button class="f-chip"        data-f="52w"       onclick="setFilter('52w')">🏆 52W高</button>
+    <button class="f-chip"        data-f="volume"    onclick="setFilter('volume')">💥 爆量</button>
+  </div>
+
+  <button class="btn-scan" id="scanBtn" onclick="runScan()">▶ 開始掃描</button>
+  <span class="scan-meta" id="scanMeta"></span>
+</div>
+
+<div class="content" id="content">
+  <div class="empty-msg">選擇市場與訊號類型，點擊「▶ 開始掃描」</div>
+</div>
+
+<script>
+(function(){
+  const t = localStorage.getItem("theme") || "dark";
+  if (t !== "dark") document.documentElement.classList.add("theme-" + t);
+})();
+
+let _market = "US", _filter = "all", _results = [], _sortCol = "bull", _sortDir = "desc";
+
+function setMarket(m) {
+  _market = m;
+  document.getElementById("mktUS").classList.toggle("active", m === "US");
+  document.getElementById("mktTW").classList.toggle("active", m === "TW");
+}
+
+function setFilter(f) {
+  _filter = f;
+  document.querySelectorAll(".f-chip").forEach(b =>
+    b.classList.toggle("active", b.dataset.f === f));
+  if (_results.length) renderResults(_results);
+}
+
+async function runScan() {
+  const btn = document.getElementById("scanBtn");
+  btn.disabled = true; btn.textContent = "掃描中…";
+  document.getElementById("content").innerHTML =
+    '<div class="spinner-wrap"><div class="spinner-ring"></div>正在掃描，請稍候（約10-20秒）…</div>';
+  document.getElementById("scanMeta").textContent = "";
+
+  try {
+    const data = await fetch("/scan/run?market=" + _market).then(r => r.json());
+    if (data.error) {
+      document.getElementById("content").innerHTML =
+        '<div class="empty-msg" style="color:var(--red)">掃描失敗：' + data.error + '</div>';
+      return;
+    }
+    _results = data.results || [];
+    const age = data.ts ? Math.round((Date.now()/1000 - data.ts)/60) : 0;
+    document.getElementById("scanMeta").textContent =
+      "掃描 " + data.total_scanned + " 檔 · 命中 " + data.hits + " 檔"
+      + (age > 0 ? " · " + age + " 分鐘前快取" : " · 剛掃描");
+    renderResults(_results);
+  } catch(e) {
+    document.getElementById("content").innerHTML =
+      '<div class="empty-msg" style="color:var(--red)">錯誤：' + e.message + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = "▶ 開始掃描";
+  }
+}
+
+const FILTER_MAP = {
+  "squeeze":    ["⚡ Squeeze多","⚡ Squeeze空","⚡ 能量蓄積"],
+  "supertrend": ["🔼 趨勢轉多","🔽 趨勢轉空"],
+  "ma":         ["突破MA20","突破MA50","跌破MA20"],
+  "52w":        ["🏆 破52W高","近52W高"],
+  "volume":     texts => texts.some(t => t.startsWith("爆量")),
+};
+
+function matchesFilter(signals) {
+  if (_filter === "all") return true;
+  const texts = signals.map(s => s.text);
+  const rule = FILTER_MAP[_filter];
+  if (typeof rule === "function") return rule(texts);
+  return texts.some(t => rule.includes(t));
+}
+
+function bullCount(signals) {
+  return signals.filter(s => s.type === "bull").length;
+}
+
+function renderResults(all) {
+  const filtered = all.filter(r => matchesFilter(r.signals));
+  if (!filtered.length) {
+    document.getElementById("content").innerHTML =
+      '<div class="empty-msg">目前條件無符合訊號的股票</div>';
+    return;
+  }
+
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    let va, vb;
+    if (_sortCol === "bull")    { va = bullCount(a.signals); vb = bullCount(b.signals); }
+    else if (_sortCol === "chg")  { va = a.chg_pct; vb = b.chg_pct; }
+    else if (_sortCol === "rsi")  { va = a.rsi || 0; vb = b.rsi || 0; }
+    else if (_sortCol === "vol")  { va = a.vol_ratio || 0; vb = b.vol_ratio || 0; }
+    else if (_sortCol === "sym")  { va = a.symbol; vb = b.symbol; return _sortDir==="asc"?va.localeCompare(vb):vb.localeCompare(va); }
+    else                          { va = bullCount(a.signals); vb = bullCount(b.signals); }
+    return _sortDir === "desc" ? vb - va : va - vb;
+  });
+
+  const isTW = _market === "TW";
+  const pFmt = (p, c) => c === "TWD" ? "NT$" + p.toLocaleString() : "$" + p.toFixed(2);
+
+  document.getElementById("content").innerHTML = `
+    <p style="font-size:.78rem;color:var(--dim);margin-bottom:.6rem;">
+      顯示 ${filtered.length} / ${all.length} 個訊號股票
+      <span style="margin-left:1rem;font-size:.72rem;">點擊欄位標題排序</span>
+    </p>
+    <div style="overflow-x:auto;">
+    <table class="scan-table">
+      <thead>
+        <tr>
+          <th onclick="sortBy('sym')">股票代碼${_sortCol==='sym'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+          <th onclick="sortBy('chg')">漲跌%${_sortCol==='chg'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+          <th onclick="sortBy('rsi')">RSI${_sortCol==='rsi'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+          <th onclick="sortBy('vol')">量比${_sortCol==='vol'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+          <th onclick="sortBy('bull')">訊號${_sortCol==='bull'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sorted.map(r => {
+          const chgCls = r.chg_pct >= 0 ? "pos" : "neg";
+          const rsiCls = (r.rsi||50) >= 70 ? "rsi-hot" : (r.rsi||50) <= 30 ? "rsi-cold" : "rsi-norm";
+          const sigHtml = r.signals.map(s =>
+            '<span class="sig-chip sig-' + s.type + '">' + s.text + '</span>'
+          ).join("");
+          return `<tr>
+            <td class="sym-cell">
+              <span class="sym">${r.symbol}</span>
+              <span class="co">${r.name}</span>
+            </td>
+            <td class="${chgCls}">${r.chg_pct >= 0 ? "+" : ""}${r.chg_pct}%</td>
+            <td><span class="rsi-chip ${rsiCls}">${r.rsi != null ? r.rsi : "—"}</span></td>
+            <td>${r.vol_ratio != null ? r.vol_ratio + "x" : '<span class="na">—</span>'}</td>
+            <td><div class="sig-wrap">${sigHtml}</div></td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function sortBy(col) {
+  if (_sortCol === col) _sortDir = _sortDir === "desc" ? "asc" : "desc";
+  else { _sortCol = col; _sortDir = col === "sym" ? "asc" : "desc"; }
+  if (_results.length) renderResults(_results);
+}
+</script>
+</body>
+</html>
