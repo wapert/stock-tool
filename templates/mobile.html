@@ -17,7 +17,7 @@
       --border: #30363d; --text: #e6edf3; --muted: #8b949e; --dim: #484f58;
       --blue:   #58a6ff; --green: #3fb950; --red: #f85149;
       --yellow: #e3b341; --purple: #d2a8ff; --orange: #f0883e;
-      --topbar-h: 54px; --bottombar-h: 56px;
+      --topbar-h: 54px; --bottombar-h: 100px;
     }
     html, body { height: 100%; overflow: hidden; }
     body {
@@ -461,19 +461,19 @@
 
     /* ── bottom action bar ── */
     .bottombar {
-      height: var(--bottombar-h); min-height: var(--bottombar-h);
       background: var(--bg2); border-top: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-around;
-      padding: 0 0.5rem; flex-shrink: 0; z-index: 10;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      padding: 0.15rem 0; flex-shrink: 0; z-index: 10;
     }
     .bottom-btn {
       display: flex; flex-direction: column; align-items: center;
-      gap: 0.15rem; background: none; border: none;
-      color: var(--muted); cursor: pointer; padding: 0.4rem 0.8rem;
+      gap: 0.12rem; background: none; border: none;
+      color: var(--muted); cursor: pointer; padding: 0.35rem 0.25rem;
       border-radius: 8px; transition: color 0.12s, background 0.12s;
-      font-size: 0.65rem; font-weight: 600; min-width: 60px;
+      font-size: 0.62rem; font-weight: 600; text-decoration: none;
+      line-height: 1.2; text-align: center;
     }
-    .bottom-btn .ico { font-size: 1.2rem; }
+    .bottom-btn .ico { font-size: 1.15rem; }
     .bottom-btn:active { background: var(--bg3); color: var(--text); }
     .bottom-btn.active { color: var(--blue); }
 
