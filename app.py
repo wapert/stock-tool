@@ -702,6 +702,10 @@ _TW_SCAN_LIST = [
     {"s":"00631L","n":"元大台灣50正2 ETF"},{"s":"00663L","n":"國泰台灣加權正2 ETF"},
 ]
 
+@app.route("/serenity")
+def serenity_page():
+    return render_template("serenity.html")
+
 @app.route("/scan")
 def scan_page():
     if _is_mobile():

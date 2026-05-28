@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Serenity Screen — AI供應鏈瓶頸</title>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149;
+      --yellow:#e3b341; --orange:#f0883e; --purple:#d2a8ff;
+    }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC",sans-serif;
+           background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* topbar */
+    .topbar { display:flex; align-items:center; gap:.75rem; padding:0 1.25rem;
+              height:50px; background:var(--bg2); border-bottom:1px solid var(--border);
+              position:sticky; top:0; z-index:10; flex-wrap:wrap; }
+    .topbar h1 { font-size:1rem; font-weight:700; color:var(--yellow); white-space:nowrap; }
+    .nav-link  { color:var(--muted); font-size:.82rem; text-decoration:none;
+                 padding:.3rem .7rem; border:1px solid var(--border); border-radius:6px; }
+    .nav-link:hover { color:var(--text); border-color:var(--muted); }
+
+    /* hero banner */
+    .hero { background: linear-gradient(135deg, #0d1117 0%, #1a1a2e 50%, #0d1117 100%);
+            border-bottom:1px solid var(--border); padding:1rem 1.5rem; }
+    .hero-inner { max-width:900px; }
+    .hero h2 { font-size:1.1rem; font-weight:700; color:var(--yellow); margin-bottom:.3rem; }
+    .hero p  { font-size:.82rem; color:var(--muted); line-height:1.6; }
+    .hero-pills { display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.6rem; }
+    .hero-pill  { font-size:.7rem; font-weight:600; padding:.15rem .55rem;
+                  border-radius:20px; white-space:nowrap; }
+    .pill-photon  { background:#1a1400; color:var(--yellow); border:1px solid #9e6a03; }
+    .pill-neocloud { background:#0d2a1a; color:var(--green);  border:1px solid #238636; }
+    .pill-chips   { background:#1a0a2e; color:var(--purple);  border:1px solid #8957e5; }
+    .pill-other   { background:#1c2128; color:var(--muted);   border:1px solid var(--border); }
+
+    /* toolbar */
+    .toolbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+               padding:.6rem 1.25rem; background:var(--bg2);
+               border-bottom:1px solid var(--border); }
+    .btn { padding:.38rem .9rem; border-radius:6px; border:none;
+           font-size:.85rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .btn-sync { background:#238636; color:#fff; }
+    .btn-sync:hover    { background:#2ea043; }
+    .btn-sync:disabled { opacity:.45; cursor:default; }
+    .btn-ghost { background:var(--bg3); color:var(--muted);
+                 border:1px solid var(--border); }
+    .btn-ghost.active { color:var(--text); border-color:var(--muted); background:var(--bg3); }
+    .sync-meta { font-size:.72rem; color:var(--dim); margin-left:auto; }
+
+    /* sector + tier filters */
+    .filter-row { display:flex; gap:.35rem; flex-wrap:wrap; }
+    .f-chip { padding:.25rem .65rem; border-radius:20px; border:1px solid var(--border);
+              background:none; color:var(--muted); cursor:pointer;
+              font-size:.76rem; font-weight:600; white-space:nowrap; }
+    .f-chip.active { background:#1f6feb22; border-color:var(--blue); color:var(--blue); }
+
+    /* content */
+    .content { padding:1rem 1.25rem 3rem; overflow-x:auto; }
+
+    /* tier badges */
+    .tier { display:inline-block; font-size:.72rem; font-weight:800;
+            width:1.6rem; text-align:center; padding:.1rem 0;
+            border-radius:4px; }
+    .tier-S { background:#3d2e00; color:#ffd700; border:1px solid #b8860b; }
+    .tier-A { background:#0d2a1a; color:#3fb950; border:1px solid #238636; }
+    .tier-B { background:#1f3a5f; color:#79c0ff; border:1px solid #388bfd; }
+    .tier-C { background:#2d1f0e; color:#f0883e; border:1px solid #9e4a00; }
+    .tier-D { background:#3d1515; color:#f85149; border:1px solid #8b1e1e; }
+    .tier-W { background:#1c2128; color:var(--muted); border:1px solid var(--border); }
+
+    /* sector pills in table */
+    .sec-pill { font-size:.65rem; font-weight:600; padding:.08rem .35rem;
+                border-radius:3px; white-space:nowrap; }
+    .sec-photon  { background:#1a1400; color:var(--yellow); }
+    .sec-neocloud{ background:#0d2a1a; color:var(--green); }
+    .sec-chips   { background:#1a0a2e; color:var(--purple); }
+    .sec-other   { background:#1c2128; color:var(--muted); }
+
+    /* main table */
+    .sr-table { width:100%; border-collapse:collapse; font-size:.83rem; min-width:900px; }
+    .sr-table thead th {
+      background:var(--bg2); color:var(--muted); font-weight:600;
+      padding:.5rem .75rem; text-align:left; white-space:nowrap;
+      border-bottom:2px solid var(--border); cursor:pointer; user-select:none;
+    }
+    .sr-table thead th:hover { color:var(--text); }
+    .sr-table tbody tr { border-bottom:1px solid var(--bg3); transition:background .1s; }
+    .sr-table tbody tr:hover { background:var(--bg2); }
+    .sr-table tbody td { padding:.55rem .75rem; vertical-align:middle; white-space:nowrap; }
+    .sort-icon { font-size:.7em; color:var(--blue); margin-left:.2em; }
+
+    /* cells */
+    .sym  { font-weight:700; color:var(--blue); }
+    .co   { font-size:.7rem; color:var(--muted); display:block; margin-top:.05rem; }
+    .thesis { font-size:.7rem; color:var(--dim); max-width:200px;
+              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:default; }
+    .pos  { color:var(--green); font-weight:600; }
+    .neg  { color:var(--red);   font-weight:600; }
+    .na   { color:var(--dim); }
+
+    /* rsi chip */
+    .rsi-chip { display:inline-block; padding:.1rem .35rem; border-radius:4px;
+                font-size:.76rem; font-weight:700; }
+    .rsi-hot  { background:#3d1515; color:var(--red); }
+    .rsi-cold { background:#0d2a1a; color:var(--green); }
+    .rsi-norm { color:var(--muted); }
+
+    /* signal chips */
+    .sig-chip { display:inline-block; font-size:.65rem; font-weight:700;
+                padding:.08rem .3rem; border-radius:4px; white-space:nowrap;
+                margin-right:.15rem; }
+    .sig-bull { background:#0d2a1a; color:var(--green); }
+    .sig-bear { background:#3d1515; color:var(--red); }
+    .sig-warn { background:#2d1f0e; color:var(--yellow); }
+
+    /* score badge */
+    .score-badge { display:inline-block; min-width:2rem; text-align:center;
+                   font-size:.78rem; font-weight:800; padding:.1rem .35rem;
+                   border-radius:5px; }
+    .score-s3  { background:#071a10; color:#3fb950; border:1px solid #238636; }
+    .score-s2  { background:#0d2a1a; color:#3fb950; }
+    .score-s1  { background:#1a2b1a; color:#7ee787; }
+    .score-s0  { background:var(--bg3); color:var(--dim); }
+    .score-sm1 { background:#2d1515; color:#f85149; }
+    .score-sm2 { background:#3d1515; color:#f85149; }
+
+    /* PT cell */
+    .pt-val   { font-weight:600; color:var(--purple); }
+    .pt-up    { font-size:.72rem; color:var(--green); }
+    .pt-dn    { font-size:.72rem; color:var(--red); }
+    .loading-cell { color:var(--dim); font-style:italic; }
+
+    /* spinner */
+    .spinner-wrap { display:flex; justify-content:center; align-items:center;
+                    gap:.75rem; padding:3rem; color:var(--muted); }
+    .spinner-ring { width:22px; height:22px; border:2px solid var(--border);
+                    border-top-color:var(--blue); border-radius:50%;
+                    animation:spin .75s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* themes */
+    html.theme-white { --bg:#fff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f; }
+    html.theme-lightblue { --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0; }
+    html.theme-lightyellow { --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318; }
+
+    /* disclaimer */
+    .disclaimer { font-size:.7rem; color:var(--dim); padding:.5rem 1.25rem .75rem;
+                  border-top:1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ Serenity Screen</h1>
+  <a class="nav-link" href="/">← 投資組合</a>
+  <a class="nav-link" href="/scan">🔍 掃描</a>
+  <a class="nav-link" href="/market">📊 市場</a>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-inner">
+    <h2>Serenity (@aleabitoreddit) — AI供應鏈瓶頸理論</h2>
+    <p>聚焦 AI 基礎設施建設中的「不可或缺節點」(Chokepoint) — 超大雲端廠商（Google/Amazon/Meta/MSFT）
+       在建設AI算力叢集時必須依賴的少數寡佔或獨家供應商。找到瓶頸，提前佈局，等待機構跟進。</p>
+    <div class="hero-pills">
+      <span class="hero-pill pill-photon">🔬 AI光子學</span>
+      <span class="hero-pill pill-neocloud">☁️ Neocloud</span>
+      <span class="hero-pill pill-chips">💾 AI半導體</span>
+      <span class="hero-pill pill-other">🚀 其他主題</span>
+    </div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <button class="btn btn-sync" id="syncBtn" onclick="syncAll()">⟳ 同步行情</button>
+  <div class="filter-row">
+    <button class="f-chip active" data-f="all"      onclick="setFilter('all')">全部</button>
+    <button class="f-chip" data-f="S"               onclick="setFilter('S')">⭐ S Tier</button>
+    <button class="f-chip" data-f="A"               onclick="setFilter('A')">🟢 A Tier</button>
+    <button class="f-chip" data-f="B"               onclick="setFilter('B')">🔵 B Tier</button>
+    <button class="f-chip" data-f="C"               onclick="setFilter('C')">🟠 C Tier</button>
+    <button class="f-chip" data-f="photon"          onclick="setFilter('photon')">🔬 光子學</button>
+    <button class="f-chip" data-f="neocloud"        onclick="setFilter('neocloud')">☁️ Neocloud</button>
+    <button class="f-chip" data-f="chips"           onclick="setFilter('chips')">💾 AI晶片</button>
+  </div>
+  <span class="sync-meta" id="syncMeta"></span>
+</div>
+
+<div class="content" id="content">
+  <div class="spinner-wrap"><div class="spinner-ring"></div>載入中…</div>
+</div>
+
+<div class="disclaimer">
+  ⚠️ 本頁資訊整理自 Serenity (@aleabitoreddit) 公開發文，僅供研究參考，不構成投資建議。
+  價格目標為其公開發表內容之估計，非官方建議。投資有風險，請自行判斷。
+</div>
+
+<script>
+(function(){
+  const t = localStorage.getItem("theme") || "dark";
+  if (t !== "dark") document.documentElement.classList.add("theme-" + t);
+})();
+
+// ── Serenity Watchlist ─────────────────────────────────────────────────────
+// tier: S/A/B/C/W(watch)
+// sector: photon/neocloud/chips/other
+// thesis: Serenity's core thesis for this position
+// pt: price target (null if unknown)
+// ptNote: timeframe / context
+const WATCHLIST = [
+  // ── AI Photonics / InP / Optical ─────────────────────────────────────────
+  { sym:"AXTI",  name:"AXT Inc.",              tier:"S", sector:"photon",
+    thesis:"InP substrate 全球雙寡頭，AI叢集光子化的關鍵原料供應商。黑堡理論核心持倉。",
+    pt:null, ptNote:"" },
+  { sym:"AAOI",  name:"Applied Optoelectronics",tier:"A", sector:"photon",
+    thesis:"800G/1.6T光收發模組，H2 2027 10x營收斜率，CPO技術跨代受益者。",
+    pt:null, ptNote:"" },
+  { sym:"COHR",  name:"Coherent Corp.",         tier:"A", sector:"photon",
+    thesis:"光子元件可防禦型長期複利，CPO生態核心供應商，最安全多頭之一。",
+    pt:null, ptNote:"" },
+  { sym:"TSEM",  name:"Tower Semiconductor",    tier:"B", sector:"photon",
+    thesis:"光子晶片代工最佳選擇，矽光子平台關鍵製造節點，可防禦型複利。",
+    pt:null, ptNote:"" },
+  { sym:"ALAB",  name:"Astera Labs",            tier:"A", sector:"photon",
+    thesis:"AI資料中心互聯晶片，CPO/光電整合必要環節，機構快速建倉中。",
+    pt:250, ptNote:"6M" },
+  { sym:"POET",  name:"POET Technologies",      tier:"W", sector:"photon",
+    thesis:"光電整合平台先驅，商業化進程是關鍵觀察點，高風險高報酬。",
+    pt:null, ptNote:"" },
+  { sym:"IIVI",  name:"II-VI / Coherent",       tier:"B", sector:"photon",
+    thesis:"光子元件廣泛佈局，AI基礎設施需求受益者。",
+    pt:null, ptNote:"" },
+
+  // ── Neocloud / AI Compute ─────────────────────────────────────────────────
+  { sym:"NBIS",  name:"Nebius Group",           tier:"S", sector:"neocloud",
+    thesis:"S Tier Neocloud領導者，GPU叢集租賃+數據服務，最高機構確定性。",
+    pt:400, ptNote:"1Y" },
+  { sym:"CIFR",  name:"Cipher Mining",          tier:"A", sector:"neocloud",
+    thesis:"A Tier Neocloud，電力基礎設施+算力轉型，強健資產負債表。",
+    pt:null, ptNote:"" },
+  { sym:"WULF",  name:"TeraWulf Inc.",          tier:"A", sector:"neocloud",
+    thesis:"A Tier Neocloud，核電+算力組合，宏觀緊縮抗壓力強。",
+    pt:null, ptNote:"" },
+  { sym:"IREN",  name:"IREN Limited",           tier:"A", sector:"neocloud",
+    thesis:"A Tier Neocloud，能源效率領先，合約可見度高。",
+    pt:null, ptNote:"" },
+  { sym:"APLD",  name:"Applied Digital",        tier:"C", sector:"neocloud",
+    thesis:"C Tier Neocloud，資產負債表需改善，長期潛力但短期風險高。",
+    pt:null, ptNote:"" },
+  { sym:"CLSK",  name:"CleanSpark Inc.",        tier:"C", sector:"neocloud",
+    thesis:"C Tier Neocloud，業務轉型期，需觀察算力佔比提升進度。",
+    pt:null, ptNote:"" },
+  { sym:"CORZ",  name:"Core Scientific",        tier:"B", sector:"neocloud",
+    thesis:"B Tier Neocloud，從挖礦轉型算力租賃，需持續追蹤。",
+    pt:null, ptNote:"" },
+
+  // ── AI Chips / Semiconductors ─────────────────────────────────────────────
+  { sym:"MRVL",  name:"Marvell Technology",     tier:"A", sector:"chips",
+    thesis:"CPO/光學網路晶片，Nvidia $2B投資背書，AI叢集互聯必要元件。",
+    pt:null, ptNote:"" },
+  { sym:"AMD",   name:"Advanced Micro Devices", tier:"B", sector:"chips",
+    thesis:"AI晶片長期多頭，MI系列加速追趕NVDA生態，資料中心成長。",
+    pt:null, ptNote:"" },
+  { sym:"ARM",   name:"Arm Holdings",           tier:"B", sector:"chips",
+    thesis:"AI終端+資料中心CPU架構壟斷，授權模式提供強健複利基礎。",
+    pt:null, ptNote:"" },
+  { sym:"MU",    name:"Micron Technology",      tier:"B", sector:"chips",
+    thesis:"HBM AI記憶體，AI訓練/推理儲存瓶頸受益者，週期性但長線看好。",
+    pt:null, ptNote:"" },
+  { sym:"SMCI",  name:"Super Micro Computer",   tier:"C", sector:"chips",
+    thesis:"AI伺服器組裝，Nvidia GPU需求間接受益，審計問題需持續觀察。",
+    pt:null, ptNote:"" },
+  { sym:"AEHR",  name:"Aehr Test Systems",      tier:"W", sector:"chips",
+    thesis:"SiC/光子晶片測試設備，Serenity關注的利基設備商。",
+    pt:null, ptNote:"" },
+
+  // ── Other Themes ──────────────────────────────────────────────────────────
+  { sym:"RKLB",  name:"Rocket Lab",             tier:"A", sector:"other",
+    thesis:"太空基礎設施+衛星製造，長期不對稱報酬，5年視角。",
+    pt:500, ptNote:"5Y" },
+  { sym:"CRCL",  name:"Circle Internet",        tier:"A", sector:"other",
+    thesis:"穩定幣基礎設施，USDC發行方，加密金融合規化受益者。",
+    pt:150, ptNote:"8M" },
+  { sym:"RDDT",  name:"Reddit Inc.",            tier:"B", sector:"other",
+    thesis:"AI訓練數據授權，獨特UGC生態系，廣告+授權雙軌收入。",
+    pt:null, ptNote:"" },
+  { sym:"HIMS",  name:"Hims & Hers Health",     tier:"B", sector:"other",
+    thesis:"數位健康平台，GLP-1減重藥物市場機會，直接面向消費者DTC。",
+    pt:null, ptNote:"" },
+  { sym:"SNAP",  name:"Snap Inc.",              tier:"W", sector:"other",
+    thesis:"Serenity偶爾提及，AR眼鏡+廣告復甦潛力，高風險投機。",
+    pt:null, ptNote:"" },
+];
+
+// Live price data after sync
+let _liveData = {};
+let _filter   = "all";
+let _sortCol  = "tier";
+let _sortDir  = "asc";
+const _TIER_ORDER = { "S":0, "A":1, "B":2, "C":3, "W":4 };
+
+// Build table on load
+renderTable();
+
+function setFilter(f) {
+  _filter = f;
+  document.querySelectorAll(".f-chip").forEach(b =>
+    b.classList.toggle("active", b.dataset.f === f));
+  renderTable();
+}
+
+function sortBy(col) {
+  if (_sortCol === col) _sortDir = _sortDir === "asc" ? "desc" : "asc";
+  else { _sortCol = col; _sortDir = col === "tier" ? "asc" : "desc"; }
+  renderTable();
+}
+
+function filtered() {
+  if (_filter === "all") return WATCHLIST;
+  if (["S","A","B","C"].includes(_filter)) return WATCHLIST.filter(s => s.tier === _filter);
+  return WATCHLIST.filter(s => s.sector === _filter);
+}
+
+function sorted(list) {
+  return [...list].sort((a, b) => {
+    let va, vb, cmp = 0;
+    const la = _liveData[a.sym], lb = _liveData[b.sym];
+    if (_sortCol === "tier")   { va = _TIER_ORDER[a.tier]||9; vb = _TIER_ORDER[b.tier]||9; cmp = va - vb; }
+    else if (_sortCol === "sym")  { cmp = a.sym.localeCompare(b.sym); }
+    else if (_sortCol === "chg")  { va = la?.chg_pct  ?? -999; vb = lb?.chg_pct  ?? -999; cmp = va - vb; }
+    else if (_sortCol === "score"){ va = la?.score ?? -99;    vb = lb?.score ?? -99;    cmp = va - vb; }
+    else if (_sortCol === "rsi")  { va = la?.rsi   ?? 0;      vb = lb?.rsi   ?? 0;      cmp = va - vb; }
+    else if (_sortCol === "pt")   { va = a.pt ?? 0; vb = b.pt ?? 0; cmp = va - vb; }
+    return _sortDir === "asc" ? cmp : -cmp;
+  });
+}
+
+function renderTable() {
+  const list = sorted(filtered());
+  const si = col => _sortCol === col
+    ? ' <span class="sort-icon">' + (_sortDir==="desc"?"▼":"▲") + "</span>"
+    : "";
+
+  document.getElementById("content").innerHTML = `
+    <table class="sr-table">
+      <thead>
+        <tr>
+          <th onclick="sortBy('tier')">Tier${si("tier")}</th>
+          <th onclick="sortBy('sym')">股票${si("sym")}</th>
+          <th style="min-width:130px">主題論點</th>
+          <th onclick="sortBy('chg')">漲跌%${si("chg")}</th>
+          <th onclick="sortBy('score')">評分${si("score")}</th>
+          <th onclick="sortBy('rsi')">RSI${si("rsi")}</th>
+          <th>訊號</th>
+          <th onclick="sortBy('pt')">Serenity PT${si("pt")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(s => rowHtml(s)).join("")}
+      </tbody>
+    </table>
+    <p style="font-size:.72rem;color:var(--dim);margin-top:.75rem;">
+      共 ${list.length} 檔 · 點擊欄位排序 · Serenity PT = 其公開發文中的目標價（不代表官方建議）
+    </p>`;
+}
+
+function rowHtml(s) {
+  const live  = _liveData[s.sym];
+  const tierCls = "tier-" + (["S","A","B","C","D"].includes(s.tier) ? s.tier : "W");
+  const secCls  = "sec-" + s.sector;
+  const secLbl  = {photon:"光子學",neocloud:"Neocloud",chips:"AI晶片",other:"其他"}[s.sector]||"";
+
+  // Price / change
+  let priceHtml = '<span class="na">—</span>';
+  let chgHtml   = '<span class="na">—</span>';
+  if (live) {
+    priceHtml = '<span style="font-weight:600">' + fmtPrice(live.price, live.currency) + '</span>';
+    const chgCls = (live.chg_pct||0) >= 0 ? "pos" : "neg";
+    chgHtml = `<span class="${chgCls}">${live.chg_pct >= 0 ? "+" : ""}${live.chg_pct}%</span>`;
+  } else if (Object.keys(_liveData).length > 0) {
+    priceHtml = '<span class="na loading-cell">N/A</span>';
+  }
+
+  // Score
+  let scoreHtml = '<span class="na">—</span>';
+  if (live && live.score != null) {
+    const sc = live.score;
+    const scCls = sc>=6?"score-s3":sc>=3?"score-s2":sc>=1?"score-s1":sc===0?"score-s0":sc>=-2?"score-sm1":"score-sm2";
+    scoreHtml = `<span class="score-badge ${scCls}">${sc>0?"+":""}${sc}</span>`;
+  }
+
+  // RSI
+  let rsiHtml = '<span class="na">—</span>';
+  if (live && live.rsi != null) {
+    const rsiCls = live.rsi >= 70 ? "rsi-hot" : live.rsi <= 30 ? "rsi-cold" : "rsi-norm";
+    rsiHtml = `<span class="rsi-chip ${rsiCls}">${live.rsi}</span>`;
+  }
+
+  // Signals
+  let sigHtml = '<span class="na" style="font-size:.7rem">—</span>';
+  if (live && live.signals && live.signals.length) {
+    sigHtml = live.signals.map(sg =>
+      `<span class="sig-chip sig-${sg.type}">${sg.text}</span>`
+    ).join("");
+  }
+
+  // Serenity PT
+  let ptHtml = '<span class="na">—</span>';
+  if (s.pt) {
+    ptHtml = `<span class="pt-val">$${s.pt}</span>`;
+    if (live && live.price) {
+      const upside = ((s.pt - live.price) / live.price * 100).toFixed(0);
+      const ptCls  = upside >= 0 ? "pt-up" : "pt-dn";
+      ptHtml += ` <span class="${ptCls}">(${upside>=0?"+":""}${upside}%)</span>`;
+      if (s.ptNote) ptHtml += `<br><span style="font-size:.65rem;color:var(--dim)">${s.ptNote}</span>`;
+    }
+  }
+
+  return `<tr>
+    <td><span class="tier ${tierCls}">${s.tier}</span></td>
+    <td>
+      <span class="sym">${s.sym}</span>
+      <span class="co">${s.name}</span>
+      <span class="sec-pill ${secCls}">${secLbl}</span>
+    </td>
+    <td><span class="thesis" title="${s.thesis}">${s.thesis}</span></td>
+    <td>${chgHtml}</td>
+    <td>${scoreHtml}</td>
+    <td>${rsiHtml}</td>
+    <td>${sigHtml}</td>
+    <td>${ptHtml}</td>
+  </tr>`;
+}
+
+function fmtPrice(p, currency) {
+  if (!p) return "—";
+  return currency === "TWD"
+    ? "NT$" + p.toLocaleString()
+    : "$" + p.toFixed(2);
+}
+
+async function syncAll() {
+  const btn = document.getElementById("syncBtn");
+  btn.disabled = true; btn.textContent = "同步中…";
+  document.getElementById("syncMeta").textContent = "";
+
+  const syms = WATCHLIST.map(s => s.sym);
+  try {
+    const res  = await fetch("/analyze", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ symbols: syms })
+    });
+    const data = await res.json();
+    (data.results || []).forEach(r => {
+      if (!r.error) {
+        _liveData[r.display_symbol || r.symbol] = {
+          price:     r.current_price,
+          chg_pct:   r.day_chg_pct,
+          rsi:       r.rsi,
+          signals:   r.signals || [],
+          score:     r.momentum_score,
+          currency:  r.is_taiwan ? "TWD" : "USD",
+        };
+      }
+    });
+    document.getElementById("syncMeta").textContent =
+      "同步完成 · " + new Date().toLocaleTimeString("zh-TW");
+    renderTable();
+  } catch(e) {
+    document.getElementById("syncMeta").textContent = "同步失敗：" + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "⟳ 同步行情";
+  }
+}
+</script>
+</body>
+</html>
