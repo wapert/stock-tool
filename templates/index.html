@@ -1438,6 +1438,23 @@ function bbTagType(bullish) {
   return bullish === true ? "bull" : bullish === false ? "bear" : "neut";
 }
 
+function fvUpside(val, upside, fmt) {
+  if (!val) return '<span class="fv-na">N/A</span>';
+  var cls = (upside||0) >= 0 ? 'fv-up' : 'fv-dn';
+  return '<span class="' + cls + '">' + fmt + '</span>';
+}
+function fvPanel(r) {
+  return '<div class="dg-group" style="min-width:220px;">'
+    + '<div class="dg-title">💰 公允價值 (Fair Value)</div>'
+    + '<div class="fv-grid">'
+    + '<div class="fv-row"><span class="fv-method">Graham</span><span class="fv-price">' + r.graham_fmt + '</span>' + fvUpside(r.graham, r.graham_upside, r.graham_upside_fmt) + '</div>'
+    + '<div class="fv-row"><span class="fv-method">DCF</span><span class="fv-price">'    + r.dcf_fmt    + '</span>' + fvUpside(r.dcf,    r.dcf_upside,    r.dcf_upside_fmt)    + '</div>'
+    + '<div class="fv-row"><span class="fv-method">Lynch</span><span class="fv-price">' + r.lynch_fmt  + '</span>' + fvUpside(r.lynch,  r.lynch_upside,  r.lynch_upside_fmt)  + '</div>'
+    + '</div>'
+    + '<div class="dg-hint" title="Graham=√(22.5×EPS×淨值) · DCF=10年現金流折現 · Lynch=EPS×成長率%">ℹ️ Graham保守 · DCF現金流 · Lynch成長 · 僅供參考</div>'
+    + '</div>';
+}
+
 function detailHtml(r) {
   // Bollinger %B guide (shown as tooltip on label)
   const bbGuide = `%B>1 突破上軌:強烈多頭 | 0.8~1 近上軌:多頭強勢 | 0.4~0.8 中性 | 0.2~0.4 近下軌 | <0.2 接近超賣 | <0 突破下軌:反彈機會 | ⚡收縮:大行情前兆`;
@@ -1520,28 +1537,7 @@ function detailHtml(r) {
       </div>
       <div class="dg-hint">ℹ️ ROE&gt;15%管理效率佳 · D/E&lt;0.5財務穩健</div>
     </div>
-    ${(r.graham||r.dcf||r.lynch) ? `
-    <div class="dg-group" style="min-width:220px;">
-      <div class="dg-title">💰 公允價值 (Fair Value)</div>
-      <div class="fv-grid">
-        <div class="fv-row">
-          <span class="fv-method">Graham</span>
-          <span class="fv-price">${r.graham_fmt}</span>
-          ${r.graham ? `<span class="${(r.graham_upside||0)>=0?'fv-up':'fv-dn'}">${r.graham_upside_fmt}</span>` : '<span class="fv-na">N/A</span>'}
-        </div>
-        <div class="fv-row">
-          <span class="fv-method">DCF</span>
-          <span class="fv-price">${r.dcf_fmt}</span>
-          ${r.dcf ? `<span class="${(r.dcf_upside||0)>=0?'fv-up':'fv-dn'}">${r.dcf_upside_fmt}</span>` : '<span class="fv-na">N/A</span>'}
-        </div>
-        <div class="fv-row">
-          <span class="fv-method">Lynch</span>
-          <span class="fv-price">${r.lynch_fmt}</span>
-          ${r.lynch ? `<span class="${(r.lynch_upside||0)>=0?'fv-up':'fv-dn'}">${r.lynch_upside_fmt}</span>` : '<span class="fv-na">N/A</span>'}
-        </div>
-      </div>
-      <div class="dg-hint" title="Graham=√(22.5×EPS×淨值) · DCF=10年現金流折現(r=10%) · Lynch=EPS×成長率%">ℹ️ Graham保守 · DCF現金流 · Lynch成長價值 · 僅供參考</div>
-    </div>` : ''}
+    ${(r.graham||r.dcf||r.lynch) ? fvPanel(r) : ''}
   </div>
   <div class="news-section" id="news-${escHtml(r.display_symbol||r.symbol)}">
     <div class="news-loading"><div class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;"></div>&nbsp;載入新聞中…</div>

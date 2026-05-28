@@ -1003,6 +1003,21 @@ async function importFileToProfile(inp) {
 }
 
 /* ── render cards ── */
+/* ── Fair value helpers ── */
+function mFvUp(val, upside, fmt) {
+  if (!val) return '<span class="fv-mini-na">N/A</span>';
+  var cls = (upside||0) >= 0 ? 'fv-mini-up' : 'fv-mini-dn';
+  return '<span class="' + cls + '">' + fmt + '</span>';
+}
+function mFvPanel(r) {
+  return '<div class="fv-mini-wrap">'
+    + '<div class="fv-mini-title">💰 公允價值 (Fair Value)</div>'
+    + '<div class="fv-mini-row"><span class="fv-mini-m">Graham</span><span class="fv-mini-p">' + r.graham_fmt + '</span>' + mFvUp(r.graham, r.graham_upside, r.graham_upside_fmt) + '</div>'
+    + '<div class="fv-mini-row"><span class="fv-mini-m">DCF</span><span class="fv-mini-p">'    + r.dcf_fmt    + '</span>' + mFvUp(r.dcf,    r.dcf_upside,    r.dcf_upside_fmt)    + '</div>'
+    + '<div class="fv-mini-row"><span class="fv-mini-m">Lynch</span><span class="fv-mini-p">' + r.lynch_fmt  + '</span>' + mFvUp(r.lynch,  r.lynch_upside,  r.lynch_upside_fmt)  + '</div>'
+    + '</div>';
+}
+
 /* ── Mobile column sort ── */
 let _mSortCol = null, _mSortDir = 'desc';
 const _M_REC_ORDER = {'強力買入':6,'買入':5,'持有':4,'低配':3,'賣出':2,'強力賣出':1};
@@ -1182,25 +1197,7 @@ function renderCards(results) {
 
         <button class="card-more-btn" onclick="toggleExtra(${i})">▼ 更多指標</button>
         <div class="card-extra" id="extra-${i}" data-sym="${esc(r.display_symbol||r.symbol)}">
-          ${(r.graham||r.dcf||r.lynch) ? `
-          <div class="fv-mini-wrap">
-            <div class="fv-mini-title">💰 公允價值 (Fair Value)</div>
-            <div class="fv-mini-row">
-              <span class="fv-mini-m">Graham</span>
-              <span class="fv-mini-p">${r.graham_fmt}</span>
-              ${r.graham?`<span class="${(r.graham_upside||0)>=0?'fv-mini-up':'fv-mini-dn'}">${r.graham_upside_fmt}</span>`:'<span class="fv-mini-na">N/A</span>'}
-            </div>
-            <div class="fv-mini-row">
-              <span class="fv-mini-m">DCF</span>
-              <span class="fv-mini-p">${r.dcf_fmt}</span>
-              ${r.dcf?`<span class="${(r.dcf_upside||0)>=0?'fv-mini-up':'fv-mini-dn'}">${r.dcf_upside_fmt}</span>`:'<span class="fv-mini-na">N/A</span>'}
-            </div>
-            <div class="fv-mini-row">
-              <span class="fv-mini-m">Lynch</span>
-              <span class="fv-mini-p">${r.lynch_fmt}</span>
-              ${r.lynch?`<span class="${(r.lynch_upside||0)>=0?'fv-mini-up':'fv-mini-dn'}">${r.lynch_upside_fmt}</span>`:'<span class="fv-mini-na">N/A</span>'}
-            </div>
-          </div>` : ''}
+          ${(r.graham||r.dcf||r.lynch) ? mFvPanel(r) : ''}
           <div class="extra-grid">
             <div class="metric sort-metric" onclick="mSortByCol('pe')"><span class="metric-label">前瞻PE${_mSortIcon('pe')}</span><span class="metric-val" style="color:var(--purple)">${r.forward_pe_fmt}</span></div>
             <div class="metric sort-metric" onclick="mSortByCol('peg')"><span class="metric-label">PEG${_mSortIcon('peg')}</span><span class="metric-val ${pegCls(r.peg_ratio)}">${r.peg_fmt}</span></div>
