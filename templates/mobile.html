@@ -306,6 +306,25 @@
       cursor: pointer; text-align: center;
     }
     .card-more-btn:active { background: var(--bg3); }
+    /* ── Mobile institutional section ── */
+    .m-inst-wrap { padding:.5rem .75rem .4rem; border-top:1px solid var(--border); }
+    .m-inst-title{ font-size:.65rem; font-weight:700; color:var(--dim);
+                   text-transform:uppercase; letter-spacing:.04em; margin-bottom:.35rem; }
+    .m-inst-chips{ display:flex; gap:.3rem; flex-wrap:wrap; margin-bottom:.4rem; }
+    .m-inst-chip { font-size:.68rem; font-weight:700; padding:.1rem .4rem;
+                   border-radius:4px; white-space:nowrap; }
+    .m-ic-bull   { background:#0d2a1a; color:#3fb950; }
+    .m-ic-bear   { background:#3d1515; color:#f85149; }
+    .m-ic-neut   { background:var(--bg3); color:var(--muted); }
+    .m-inst-row  { display:flex; justify-content:space-between; align-items:center;
+                   padding:.18rem 0; border-bottom:1px solid var(--bg3);
+                   font-size:.74rem; }
+    .m-inst-row:last-child { border-bottom:none; }
+    .m-inst-date { color:var(--dim); font-size:.68rem; }
+    .m-inst-pos  { color:var(--green); font-weight:600; }
+    .m-inst-neg  { color:var(--red);   font-weight:600; }
+    .m-inst-zero { color:var(--dim); }
+
     /* ── Mobile news section ── */
     .m-news-section { padding:.5rem .75rem .4rem; border-top:1px solid var(--border); }
     .m-news-title   { font-size:.65rem; font-weight:700; color:var(--dim);
@@ -1259,6 +1278,9 @@ function renderCards(results) {
               <span class="metric-val ${(r.debt_equity||99)<=0.5?"pos":(r.debt_equity||99)<=1.5?"":"neg"}">${r.debt_equity_fmt}</span>
             </div>
           </div>
+          <div class="m-inst-placeholder" id="minst-${esc(r.display_symbol||r.symbol)}">
+            <div class="m-news-loading" style="padding:.5rem .75rem"><div class="spinner-ring" style="width:13px;height:13px;border-width:2px;display:inline-block;"></div>&nbsp;載入法人資料…</div>
+          </div>
           <div class="m-news-section" id="mnews-${esc(r.display_symbol||r.symbol)}">
             <div class="m-news-loading"><div class="spinner-ring" style="width:13px;height:13px;border-width:2px;display:inline-block;"></div>&nbsp;載入新聞…</div>
           </div>
@@ -1273,7 +1295,10 @@ function toggleExtra(i) {
   const btn = el.previousElementSibling;
   const open = el.classList.toggle("open");
   btn.textContent = open ? "▲ 收起" : "▼ 更多指標";
-  if (open) loadMobileNews(el.dataset.sym);
+  if (open) {
+    loadMobileNews(el.dataset.sym);
+    loadMobileInst(el.dataset.sym);
+  }
 }
 
 /* ── Mobile stock autocomplete ── */
@@ -1372,6 +1397,71 @@ function mAcOnKey(e) {
   else return;
   items.forEach((el,i)=>el.classList.toggle("active",i===_mAcIdx));
   if(items[_mAcIdx]) items[_mAcIdx].scrollIntoView({block:"nearest"});
+}
+
+/* ── Mobile institutional loader ── */
+const _mInstLoaded = new Set();
+async function loadMobileInst(sym) {
+  if (!sym || _mInstLoaded.has(sym)) return;
+  const el = document.getElementById(`minst-${sym}`);
+  if (!el) return;
+  _mInstLoaded.add(sym);
+  try {
+    const data = await fetch(`/stock/institutional?symbol=${encodeURIComponent(sym)}`).then(r=>r.json());
+    if (data.type === 'TW' && data.rows?.length) {
+      const cum = data.total_5d || 0;
+      const fc  = data.foreign_5d || 0;
+      const tc  = data.trust_5d  || 0;
+      const mFmt = n => {
+        if (n == null) return '<span class="m-inst-zero">—</span>';
+        const cls = n > 0 ? 'm-inst-pos' : n < 0 ? 'm-inst-neg' : 'm-inst-zero';
+        const abs = Math.abs(n);
+        const s = abs>=1000000?(n/1000000).toFixed(1)+'M':abs>=1000?(n/1000).toFixed(0)+'K':String(n);
+        return `<span class="${cls}">${n>0?'+':''}${s}</span>`;
+      };
+      const chipCls = n => n>0?'m-ic-bull':n<0?'m-ic-bear':'m-ic-neut';
+      el.innerHTML = `<div class="m-inst-wrap">
+        <div class="m-inst-title">🏛️ 三大法人買賣超（近5日）</div>
+        <div class="m-inst-chips">
+          <span class="m-inst-chip ${chipCls(fc)}">外資 ${mFmt(fc)}</span>
+          <span class="m-inst-chip ${chipCls(tc)}">投信 ${mFmt(tc)}</span>
+          <span class="m-inst-chip ${chipCls(cum)}">合計 ${mFmt(cum)}</span>
+        </div>
+        ${data.rows.map(r=>`<div class="m-inst-row">
+          <span class="m-inst-date">${r.date}</span>
+          <span>${mFmt(r.foreign_net)}</span>
+          <span>${mFmt(r.trust_net)}</span>
+          <span>${mFmt(r.dealer_net)}</span>
+          <b>${mFmt(r.total_net)}</b>
+        </div>`).join('')}
+      </div>`;
+    } else if (data.type === 'US') {
+      const net = parseInt(String(data.net_shares||'0').replace(/,/g,'')) || 0;
+      const b   = parseInt(String(data.buy_shares||'0').replace(/,/g,''))  || 0;
+      const s   = parseInt(String(data.sell_shares||'0').replace(/,/g,'')) || 0;
+      if (!net && !b && !s) { el.innerHTML=''; return; }
+      const cc  = net>0?'m-ic-bull':net<0?'m-ic-bear':'m-ic-neut';
+      const txHtml = (data.transactions||[]).slice(0,5).map(t=>`<div class="m-inst-row">
+        <span class="m-inst-date">${t.date}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;font-size:.7rem;padding:0 .3rem">${esc(t.insider)}</span>
+        <span class="${t.type==='買入'?'m-inst-pos':'m-inst-neg'}">${t.type}</span>
+        <span style="font-size:.72rem">${t.shares?t.shares.toLocaleString():'—'}</span>
+      </div>`).join('');
+      el.innerHTML = `<div class="m-inst-wrap">
+        <div class="m-inst-title">👤 內部人交易（近6個月）</div>
+        <div class="m-inst-chips">
+          <span class="m-inst-chip m-ic-bull">買 ${b?b.toLocaleString():'—'}</span>
+          <span class="m-inst-chip m-ic-bear">賣 ${s?s.toLocaleString():'—'}</span>
+          <span class="m-inst-chip ${cc}">淨 ${net>0?'+':''}${net?net.toLocaleString():'—'}</span>
+        </div>
+        ${txHtml}
+      </div>`;
+    } else {
+      el.innerHTML = '';
+    }
+  } catch(e) {
+    el.innerHTML = '';
+  }
 }
 
 /* ── Mobile news loader ── */

@@ -677,6 +677,31 @@
       display: flex; flex-wrap: wrap; gap: 0.6rem;
     }
 
+    /* ── Institutional / Insider section ── */
+    .inst-section { margin-top:.6rem; border-top:1px solid var(--border); padding-top:.5rem; }
+    .inst-title   { font-size:.7rem; font-weight:700; color:var(--dim);
+                    text-transform:uppercase; letter-spacing:.06em; margin-bottom:.4rem; }
+    .inst-table   { border-collapse:collapse; font-size:.78rem; }
+    .inst-table th{ color:var(--dim); font-size:.68rem; padding:.2rem .6rem; text-align:right;
+                    border-bottom:1px solid var(--border); }
+    .inst-table th:first-child { text-align:left; }
+    .inst-table td{ padding:.28rem .6rem; text-align:right; white-space:nowrap; }
+    .inst-table td:first-child { text-align:left; color:var(--muted); }
+    .inst-table tr:hover td { background:var(--bg3); }
+    .inst-pos  { color:var(--green); font-weight:600; }
+    .inst-neg  { color:var(--red);   font-weight:600; }
+    .inst-zero { color:var(--dim); }
+    .inst-summary { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem; }
+    .inst-chip { display:inline-flex; align-items:center; gap:.3rem;
+                 padding:.2rem .55rem; border-radius:5px; font-size:.76rem; font-weight:600; }
+    .inst-chip-bull { background:#0d2a1a; color:var(--green); }
+    .inst-chip-bear { background:#3d1515; color:var(--red); }
+    .inst-chip-neut { background:var(--bg3); color:var(--muted); }
+    .inst-tx-table  { border-collapse:collapse; font-size:.76rem; width:100%; margin-top:.4rem; }
+    .inst-tx-table th { color:var(--dim); font-size:.68rem; padding:.2rem .5rem;
+                         border-bottom:1px solid var(--border); text-align:left; }
+    .inst-tx-table td { padding:.25rem .5rem; border-bottom:1px solid var(--bg3); }
+
     /* ── News section ── */
     .news-section { margin-top:.75rem; border-top:1px solid var(--border); padding-top:.6rem; }
     .news-section-title { font-size:.7rem; font-weight:700; color:var(--dim);
@@ -1404,7 +1429,99 @@ function toggleDetail(i) {
   const open = row.style.display === "table-row";
   row.style.display = open ? "none" : "table-row";
   btn.textContent   = open ? "▼" : "▲";
-  if (!open) loadStockNews(row.dataset.sym);
+  if (!open) {
+    loadStockNews(row.dataset.sym);
+    loadInstitutional(row.dataset.sym);
+  }
+}
+
+// ── Institutional / Insider ───────────────────────────────────────────────────
+const _instLoaded = new Set();
+async function loadInstitutional(sym) {
+  if (!sym || _instLoaded.has(sym)) return;
+  const el = document.getElementById(`inst-${sym}`);
+  if (!el) return;
+  _instLoaded.add(sym);
+  try {
+    const data = await fetch(`/stock/institutional?symbol=${encodeURIComponent(sym)}`).then(r=>r.json());
+    if (data.error && !data.rows && !data.transactions) {
+      el.innerHTML = ''; return;
+    }
+    if (data.type === 'TW') {
+      el.innerHTML = renderTWInst(data);
+    } else {
+      el.innerHTML = renderUSInsider(data);
+    }
+  } catch(e) {
+    el.innerHTML = `<span style="font-size:.76rem;color:var(--red)">法人資料載入失敗</span>`;
+  }
+}
+
+function _instFmt(n) {
+  if (n == null || isNaN(n)) return '<span class="inst-zero">—</span>';
+  const cls = n > 0 ? 'inst-pos' : n < 0 ? 'inst-neg' : 'inst-zero';
+  const abs = Math.abs(n);
+  const str = abs >= 1000000 ? (n/1000000).toFixed(2)+'M'
+            : abs >= 1000    ? (n/1000).toFixed(0)+'K'
+            : String(n);
+  return `<span class="${cls}">${n>0?'+':''}${str}</span>`;
+}
+
+function renderTWInst(data) {
+  if (!data.rows || !data.rows.length) return '';
+  const cum5 = data.total_5d;
+  const cumCls = cum5 > 0 ? 'inst-chip-bull' : cum5 < 0 ? 'inst-chip-bear' : 'inst-chip-neut';
+  const fCls  = (data.foreign_5d||0) > 0 ? 'inst-chip-bull' : (data.foreign_5d||0) < 0 ? 'inst-chip-bear' : 'inst-chip-neut';
+  const tCls  = (data.trust_5d||0)   > 0 ? 'inst-chip-bull' : (data.trust_5d||0)   < 0 ? 'inst-chip-bear' : 'inst-chip-neut';
+  const rows  = data.rows.map(r => `<tr>
+    <td>${r.date}</td>
+    <td>${_instFmt(r.foreign_net)}</td>
+    <td>${_instFmt(r.trust_net)}</td>
+    <td>${_instFmt(r.dealer_net)}</td>
+    <td>${_instFmt(r.total_net)}</td>
+  </tr>`).join('');
+  return `<div class="inst-section">
+    <div class="inst-title">🏛️ 三大法人買賣超（近5日，股數）</div>
+    <div class="inst-summary">
+      <span class="inst-chip ${fCls}">外資 5日 ${_instFmt(data.foreign_5d)}</span>
+      <span class="inst-chip ${tCls}">投信 5日 ${_instFmt(data.trust_5d)}</span>
+      <span class="inst-chip ${cumCls}">合計 5日 ${_instFmt(cum5)}</span>
+    </div>
+    <table class="inst-table">
+      <thead><tr><th>日期</th><th>外資</th><th>投信</th><th>自營商</th><th>合計</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderUSInsider(data) {
+  if (!data.net_shares && !data.transactions?.length) return '';
+  const net = typeof data.net_shares === 'number' ? data.net_shares
+            : parseInt(String(data.net_shares||'0').replace(/,/g,'')) || 0;
+  const buys  = typeof data.buy_shares  === 'number' ? data.buy_shares
+              : parseInt(String(data.buy_shares||'0').replace(/,/g,'')) || 0;
+  const sells = typeof data.sell_shares === 'number' ? data.sell_shares
+              : parseInt(String(data.sell_shares||'0').replace(/,/g,'')) || 0;
+  const netCls = net > 0 ? 'inst-chip-bull' : net < 0 ? 'inst-chip-bear' : 'inst-chip-neut';
+  const txRows = (data.transactions||[]).map(t => `<tr>
+    <td>${t.date}</td>
+    <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${escHtml(t.insider)}</td>
+    <td style="font-size:.7rem;color:var(--dim)">${escHtml(t.position)}</td>
+    <td class="${t.type==='買入'?'inst-pos':'inst-neg'}">${t.type}</td>
+    <td>${t.shares ? t.shares.toLocaleString() : '—'}</td>
+  </tr>`).join('');
+  return `<div class="inst-section">
+    <div class="inst-title">👤 內部人交易（近6個月）</div>
+    <div class="inst-summary">
+      <span class="inst-chip inst-chip-bull">買入 ${buys ? buys.toLocaleString() : '—'} 股</span>
+      <span class="inst-chip inst-chip-bear">賣出 ${sells ? sells.toLocaleString() : '—'} 股</span>
+      <span class="inst-chip ${netCls}">淨 ${net > 0 ? '+' : ''}${net ? net.toLocaleString() : '—'} 股</span>
+    </div>
+    ${txRows ? `<table class="inst-tx-table">
+      <thead><tr><th>日期</th><th>內部人</th><th>職位</th><th>類型</th><th>股數</th></tr></thead>
+      <tbody>${txRows}</tbody>
+    </table>` : ''}
+  </div>`;
 }
 
 const _newsLoaded = new Set();
@@ -1556,6 +1673,9 @@ function detailHtml(r) {
       <div class="dg-hint">ℹ️ ROE&gt;15%管理效率佳 · D/E&lt;0.5財務穩健</div>
     </div>
     ${(r.graham||r.dcf||r.lynch) ? fvPanel(r) : ''}
+  </div>
+  <div class="inst-section" id="inst-${escHtml(r.display_symbol||r.symbol)}">
+    <div class="news-loading"><div class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;"></div>&nbsp;載入法人/內部人資料…</div>
   </div>
   <div class="news-section" id="news-${escHtml(r.display_symbol||r.symbol)}">
     <div class="news-loading"><div class="spinner-ring" style="width:14px;height:14px;border-width:2px;display:inline-block;"></div>&nbsp;載入新聞中…</div>

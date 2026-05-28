@@ -702,6 +702,103 @@ _TW_SCAN_LIST = [
     {"s":"00631L","n":"元大台灣50正2 ETF"},{"s":"00663L","n":"國泰台灣加權正2 ETF"},
 ]
 
+@app.route("/stock/institutional")
+def stock_institutional():
+    import yfinance as yf
+    import urllib.request as _ur
+    import json as _json
+    import datetime as _dt
+    import pandas as _pd
+
+    sym    = request.args.get("symbol","").strip().upper()
+    is_tw  = bool(_TW_SYM.match(sym))
+    cache_key = f"inst:{sym}"
+    cached = _cache.get(cache_key)
+    if cached:
+        return jsonify(cached)
+
+    result = {"symbol": sym, "type": "TW" if is_tw else "US"}
+
+    if is_tw:
+        # ── Taiwan: TWSE T86 三大法人 (last 5 trading days) ──────────────────
+        rows, today = [], _dt.date.today()
+        checked = 0
+        while len(rows) < 5 and checked < 14:
+            d = today - _dt.timedelta(days=checked)
+            checked += 1
+            if d.weekday() >= 5:
+                continue
+            date_str = d.strftime("%Y%m%d")
+            try:
+                url = (f"https://www.twse.com.tw/fund/T86?response=json"
+                       f"&date={date_str}&selectType=ALLBUT0999")
+                req = _ur.Request(url, headers={"User-Agent":"Mozilla/5.0"})
+                data = _json.loads(_ur.urlopen(req, timeout=6).read())
+                if data.get("stat") != "OK" or not data.get("data"):
+                    continue
+                for row in data["data"]:
+                    code = str(row[0]).strip()
+                    if code == sym:
+                        def _n(v):
+                            try: return int(str(v).replace(",","").replace(" ",""))
+                            except: return 0
+                        rows.append({
+                            "date":        date_str[:4]+"/"+date_str[4:6]+"/"+date_str[6:],
+                            "foreign_net": _n(row[4]),   # 外陸資買賣超
+                            "trust_net":   _n(row[10]),  # 投信買賣超
+                            "dealer_net":  _n(row[11]),  # 自營商買賣超
+                            "total_net":   _n(row[18]),  # 三大法人合計
+                        })
+                        break
+            except Exception:
+                continue
+        result["rows"] = rows
+        # 5-day cumulative
+        if rows:
+            result["foreign_5d"] = sum(r["foreign_net"] for r in rows)
+            result["trust_5d"]   = sum(r["trust_net"]   for r in rows)
+            result["dealer_5d"]  = sum(r["dealer_net"]  for r in rows)
+            result["total_5d"]   = sum(r["total_net"]   for r in rows)
+
+    else:
+        # ── USA: yfinance insider trading ─────────────────────────────────────
+        try:
+            ticker  = yf.Ticker(sym)
+            summary = ticker.insider_purchases
+            if summary is not None and not summary.empty:
+                def _val(label):
+                    rows = summary[summary.iloc[:,0].astype(str).str.contains(label, na=False)]
+                    return rows.iloc[0,1] if not rows.empty else None
+                result["buy_shares"]  = _val("Purchases")
+                result["sell_shares"] = _val("Sales")
+                result["net_shares"]  = _val("Net Shares")
+                result["pct_net"]     = _val("% Net")
+                result["period"]      = "6 months"
+
+            # Recent transactions (last 10)
+            trans = ticker.insider_transactions
+            if trans is not None and not trans.empty:
+                trans = trans.head(10)
+                result["transactions"] = []
+                for _, row in trans.iterrows():
+                    tx = row.get("Transaction","")
+                    shares = row.get("Shares", 0)
+                    try: shares = int(float(str(shares).replace(",",""))) if shares and str(shares)!="nan" else 0
+                    except: shares = 0
+                    date_val = row.get("Start Date","")
+                    result["transactions"].append({
+                        "date":     str(date_val)[:10] if date_val else "",
+                        "insider":  str(row.get("Insider",""))[:30],
+                        "position": str(row.get("Position",""))[:25],
+                        "type":     "買入" if "Purchase" in str(tx) or "Acquisition" in str(tx) else "賣出",
+                        "shares":   shares,
+                    })
+        except Exception as e:
+            result["error"] = str(e)
+
+    _cache.set(cache_key, result, ttl=3600)
+    return jsonify(result)
+
 @app.route("/serenity")
 def serenity_page():
     return render_template("serenity.html")
