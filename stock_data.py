@@ -289,6 +289,79 @@ def calculate_graham_number(info):
     return None
 
 
+def calculate_dcf(info, current_price):
+    """
+    Simplified 10-year DCF using Free Cash Flow per share.
+
+    Assumptions:
+      - Growth rate  : analyst revenue/earnings growth (capped 3%–30%)
+      - Discount rate: 10% base + beta adjustment
+      - Terminal grow: 2.5% perpetuity (GDP-level)
+      - Margin of safety: result shown as-is; user applies their own margin
+
+    Returns fair_value or None if data unavailable / negative FCF.
+    """
+    try:
+        fcf    = info.get("freeCashflow")
+        shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+        if not fcf or not shares or shares <= 0:
+            return None
+        fcf_ps = float(fcf) / float(shares)
+        if fcf_ps <= 0:
+            return None   # negative FCF → DCF not meaningful
+
+        # Growth rate: prefer earnings growth, fallback revenue growth, default 8%
+        g_raw = (info.get("earningsGrowth") or
+                 info.get("revenueGrowth")   or
+                 info.get("earningsQuarterlyGrowth") or 0.08)
+        growth = max(0.03, min(float(g_raw), 0.30))   # clamp 3%–30%
+
+        # Discount rate: 10% base, nudged by beta
+        beta = info.get("beta") or 1.0
+        beta = max(0.5, min(float(beta), 3.0))
+        discount = 0.08 + beta * 0.02           # β=1 → 10%, β=1.5 → 11%
+
+        terminal_g = 0.025
+        years      = 10
+
+        # Sum PV of FCF for years 1–10
+        pv = sum(fcf_ps * (1 + growth)**y / (1 + discount)**y
+                 for y in range(1, years + 1))
+
+        # Terminal value (Gordon Growth)
+        fcf_terminal = fcf_ps * (1 + growth)**years * (1 + terminal_g)
+        pv_terminal  = (fcf_terminal / (discount - terminal_g)) / (1 + discount)**years
+
+        return round(pv + pv_terminal, 2)
+    except Exception:
+        return None
+
+
+def calculate_peter_lynch(info):
+    """
+    Peter Lynch Fair Value: P/E should equal EPS growth rate.
+    Fair Price = Trailing EPS × EPS_growth_rate (in %)
+
+    Lynch's rule: PEG < 1 = undervalued, PEG > 2 = expensive.
+    A stock growing 20%/yr fairly priced at P/E of 20.
+    """
+    try:
+        eps    = info.get("trailingEps") or info.get("forwardEps")
+        growth = (info.get("earningsGrowth") or
+                  info.get("revenueGrowth")   or
+                  info.get("earningsQuarterlyGrowth"))
+        if not eps or not growth:
+            return None
+        eps, growth = float(eps), float(growth)
+        if eps <= 0 or growth <= 0:
+            return None
+        growth_pct = growth * 100          # e.g. 0.20 → 20
+        growth_pct = min(growth_pct, 50)   # cap at 50× to avoid absurd values
+        return round(eps * growth_pct, 2)
+    except Exception:
+        return None
+
+
 def detect_movement_signals(hist, current_price, rsi, vol_ratio, week52_high):
     """
     Detect actionable movement signals for a stock.
@@ -745,12 +818,20 @@ def analyze_stock(symbol: str) -> dict:
         # Volume vs 20D avg
         vol_ratio = calculate_volume_ratio(volumes)
 
-        # Graham Number (fair value)
-        graham       = calculate_graham_number(info)
-        graham_upside = (
-            round((graham - current_price) / current_price * 100, 1)
-            if graham and current_price else None
-        )
+        # ── Fair Value models ────────────────────────────────────────────────
+        def _upside(fair):
+            if fair and current_price and current_price > 0:
+                return round((fair - current_price) / current_price * 100, 1)
+            return None
+
+        graham        = calculate_graham_number(info)
+        graham_upside = _upside(graham)
+
+        dcf           = calculate_dcf(info, current_price)
+        dcf_upside    = _upside(dcf)
+
+        lynch         = calculate_peter_lynch(info)
+        lynch_upside  = _upside(lynch)
 
         # Movement signals (Squeeze, Supertrend, MA breakout, etc.)
         signals = detect_movement_signals(
@@ -876,11 +957,19 @@ def analyze_stock(symbol: str) -> dict:
             "roe_fmt":          f"{roe*100:.1f}%" if roe else "N/A",
             "debt_equity":      debt_equity,
             "debt_equity_fmt":  f"{debt_equity:.2f}" if debt_equity is not None else "N/A",
-            # ── Graham Number ─────────────────────────────────────────────────
-            "graham":           graham,
-            "graham_fmt":       (_fmt_price(graham, currency) if graham else "N/A"),
-            "graham_upside":    graham_upside,
-            "graham_upside_fmt":(f"{graham_upside:+.1f}%" if graham_upside is not None else "N/A"),
+            # ── Fair Value models ─────────────────────────────────────────────
+            "graham":              graham,
+            "graham_fmt":          (_fmt_price(graham, currency) if graham else "N/A"),
+            "graham_upside":       graham_upside,
+            "graham_upside_fmt":   (f"{graham_upside:+.1f}%" if graham_upside is not None else "N/A"),
+            "dcf":                 dcf,
+            "dcf_fmt":             (_fmt_price(dcf, currency) if dcf else "N/A"),
+            "dcf_upside":          dcf_upside,
+            "dcf_upside_fmt":      (f"{dcf_upside:+.1f}%" if dcf_upside is not None else "N/A"),
+            "lynch":               lynch,
+            "lynch_fmt":           (_fmt_price(lynch, currency) if lynch else "N/A"),
+            "lynch_upside":        lynch_upside,
+            "lynch_upside_fmt":    (f"{lynch_upside:+.1f}%" if lynch_upside is not None else "N/A"),
             # ── Movement signals ──────────────────────────────────────────────
             "signals":          signals,
         }

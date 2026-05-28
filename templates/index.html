@@ -454,14 +454,16 @@
     .sig-bull { background:#0d2a1a; color:#3fb950; }
     .sig-bear { background:#3d1515; color:#f85149; }
     .sig-warn { background:#2d1f0e; color:#e3b341; }
-    /* ── Graham Number ── */
-    .graham-row { display:flex; align-items:center; gap:.5rem; margin-top:.3rem;
-                  padding:.3rem .5rem; background:var(--bg3); border-radius:6px;
-                  font-size:.78rem; }
-    .graham-label { color:var(--dim); font-size:.68rem; min-width:5rem; }
-    .graham-price { font-weight:700; color:var(--purple); }
-    .graham-up    { color:var(--green); font-weight:600; }
-    .graham-dn    { color:var(--red);   font-weight:600; }
+    /* ── Fair Value panel ── */
+    .fv-grid   { display:flex; flex-direction:column; gap:.25rem; margin-top:.25rem; }
+    .fv-row    { display:flex; align-items:center; gap:.5rem;
+                 padding:.28rem .5rem; background:var(--bg3); border-radius:5px;
+                 font-size:.78rem; }
+    .fv-method { color:var(--dim); font-size:.68rem; min-width:4.5rem; font-weight:600; }
+    .fv-price  { font-weight:700; color:var(--purple); min-width:5rem; }
+    .fv-up     { color:var(--green); font-weight:600; font-size:.75rem; }
+    .fv-dn     { color:var(--red);   font-weight:600; font-size:.75rem; }
+    .fv-na     { color:var(--dim);   font-size:.75rem; }
 
     /* ── spinner / error ── */
     .spinner {
@@ -1518,15 +1520,27 @@ function detailHtml(r) {
       </div>
       <div class="dg-hint">ℹ️ ROE&gt;15%管理效率佳 · D/E&lt;0.5財務穩健</div>
     </div>
-    ${r.graham ? `
-    <div class="dg-group" style="min-width:200px;">
-      <div class="dg-title">📐 Graham 公允價</div>
-      <div class="graham-row">
-        <span class="graham-label">公允價</span>
-        <span class="graham-price">${r.graham_fmt}</span>
-        <span class="${(r.graham_upside||0)>=0?'graham-up':'graham-dn'}">${r.graham_upside_fmt}</span>
+    ${(r.graham||r.dcf||r.lynch) ? `
+    <div class="dg-group" style="min-width:220px;">
+      <div class="dg-title">💰 公允價值 (Fair Value)</div>
+      <div class="fv-grid">
+        <div class="fv-row">
+          <span class="fv-method">Graham</span>
+          <span class="fv-price">${r.graham_fmt}</span>
+          ${r.graham ? `<span class="${(r.graham_upside||0)>=0?'fv-up':'fv-dn'}">${r.graham_upside_fmt}</span>` : '<span class="fv-na">N/A</span>'}
+        </div>
+        <div class="fv-row">
+          <span class="fv-method">DCF</span>
+          <span class="fv-price">${r.dcf_fmt}</span>
+          ${r.dcf ? `<span class="${(r.dcf_upside||0)>=0?'fv-up':'fv-dn'}">${r.dcf_upside_fmt}</span>` : '<span class="fv-na">N/A</span>'}
+        </div>
+        <div class="fv-row">
+          <span class="fv-method">Lynch</span>
+          <span class="fv-price">${r.lynch_fmt}</span>
+          ${r.lynch ? `<span class="${(r.lynch_upside||0)>=0?'fv-up':'fv-dn'}">${r.lynch_upside_fmt}</span>` : '<span class="fv-na">N/A</span>'}
+        </div>
       </div>
-      <div class="dg-hint">ℹ️ Graham公式 = √(22.5×EPS×每股淨值) · 適合傳統價值股</div>
+      <div class="dg-hint" title="Graham=√(22.5×EPS×淨值) · DCF=10年現金流折現(r=10%) · Lynch=EPS×成長率%">ℹ️ Graham保守 · DCF現金流 · Lynch成長價值 · 僅供參考</div>
     </div>` : ''}
   </div>
   <div class="news-section" id="news-${escHtml(r.display_symbol||r.symbol)}">

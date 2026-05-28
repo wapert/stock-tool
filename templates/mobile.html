@@ -331,13 +331,18 @@
     .sig-bull { background:#0d2a1a; color:#3fb950; }
     .sig-bear { background:#3d1515; color:#f85149; }
     .sig-warn { background:#2d1f0e; color:#e3b341; }
-    .graham-mini { display:flex; align-items:center; gap:.4rem;
-                   padding:.3rem .5rem; background:var(--bg3); border-radius:5px;
-                   font-size:.75rem; margin:.3rem 0; }
-    .graham-mini .g-label { color:var(--dim); font-size:.65rem; }
-    .graham-mini .g-price { font-weight:700; color:#d2a8ff; }
-    .graham-mini .g-up    { color:#3fb950; font-size:.72rem; }
-    .graham-mini .g-dn    { color:#f85149; font-size:.72rem; }
+    /* ── Fair Value mini panel ── */
+    .fv-mini-wrap { background:var(--bg3); border-radius:6px;
+                    padding:.35rem .5rem; margin:.3rem 0; }
+    .fv-mini-title{ font-size:.62rem; color:var(--dim); font-weight:700;
+                    text-transform:uppercase; letter-spacing:.04em; margin-bottom:.25rem; }
+    .fv-mini-row  { display:flex; align-items:center; gap:.4rem;
+                    font-size:.74rem; padding:.1rem 0; }
+    .fv-mini-m    { color:var(--dim); font-size:.65rem; min-width:3.2rem; font-weight:600; }
+    .fv-mini-p    { font-weight:700; color:#d2a8ff; flex:1; }
+    .fv-mini-up   { color:#3fb950; font-size:.7rem; }
+    .fv-mini-dn   { color:#f85149; font-size:.7rem; }
+    .fv-mini-na   { color:var(--dim); font-size:.7rem; }
 
     /* ── Sortable metric rectangles ── */
     .sort-metric { cursor:pointer; -webkit-tap-highlight-color:transparent; }
@@ -1177,10 +1182,24 @@ function renderCards(results) {
 
         <button class="card-more-btn" onclick="toggleExtra(${i})">▼ 更多指標</button>
         <div class="card-extra" id="extra-${i}" data-sym="${esc(r.display_symbol||r.symbol)}">
-          ${r.graham ? `<div class="graham-mini">
-            <span class="g-label">📐 Graham公允價</span>
-            <span class="g-price">${r.graham_fmt}</span>
-            <span class="${(r.graham_upside||0)>=0?'g-up':'g-dn'}">${r.graham_upside_fmt}</span>
+          ${(r.graham||r.dcf||r.lynch) ? `
+          <div class="fv-mini-wrap">
+            <div class="fv-mini-title">💰 公允價值 (Fair Value)</div>
+            <div class="fv-mini-row">
+              <span class="fv-mini-m">Graham</span>
+              <span class="fv-mini-p">${r.graham_fmt}</span>
+              ${r.graham?`<span class="${(r.graham_upside||0)>=0?'fv-mini-up':'fv-mini-dn'}">${r.graham_upside_fmt}</span>`:'<span class="fv-mini-na">N/A</span>'}
+            </div>
+            <div class="fv-mini-row">
+              <span class="fv-mini-m">DCF</span>
+              <span class="fv-mini-p">${r.dcf_fmt}</span>
+              ${r.dcf?`<span class="${(r.dcf_upside||0)>=0?'fv-mini-up':'fv-mini-dn'}">${r.dcf_upside_fmt}</span>`:'<span class="fv-mini-na">N/A</span>'}
+            </div>
+            <div class="fv-mini-row">
+              <span class="fv-mini-m">Lynch</span>
+              <span class="fv-mini-p">${r.lynch_fmt}</span>
+              ${r.lynch?`<span class="${(r.lynch_upside||0)>=0?'fv-mini-up':'fv-mini-dn'}">${r.lynch_upside_fmt}</span>`:'<span class="fv-mini-na">N/A</span>'}
+            </div>
           </div>` : ''}
           <div class="extra-grid">
             <div class="metric sort-metric" onclick="mSortByCol('pe')"><span class="metric-label">前瞻PE${_mSortIcon('pe')}</span><span class="metric-val" style="color:var(--purple)">${r.forward_pe_fmt}</span></div>
