@@ -784,9 +784,23 @@ def ebcshow_summarize():
 
 @app.route("/ebcshow/status")
 def ebcshow_status():
-    """Poll job status for a video."""
+    """Poll job status — checks JSON file (shared across all workers)."""
     vid_id = request.args.get("id","")
-    state  = _gemini_jobs.get(vid_id, "unknown")
+    from ebcshow import DATA_FILE
+    # Check JSON file first (the only shared state across gunicorn workers)
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+            for v in data.get("videos", []):
+                if v["id"] == vid_id:
+                    if v.get("gemini"):
+                        return jsonify({"id": vid_id, "status": "done"})
+                    break
+        except Exception:
+            pass
+    # Fall back to in-memory (same worker only)
+    state = _gemini_jobs.get(vid_id, "processing")
     return jsonify({"id": vid_id, "status": state})
 
 @app.route("/calendar")
