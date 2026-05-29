@@ -1,18 +1,25 @@
 """
 EBC Money Show (理財達人秀) daily fetcher.
-Uses yt-dlp to get video list + metadata (title, chapters, hashtags, description).
-No transcript needed — chapters + title contain the key discussion topics.
+Strategy (bot-detection-free):
+  1. YouTube RSS feed → latest video IDs + titles + dates
+  2. YouTube page scrape → chapters + description (lightweight GET, no bot check)
+  3. Extract TW/US stock codes from title + description + hashtags
 """
-import os, re, json, datetime, logging
+import os, re, json, datetime, logging, urllib.request, html
 
 log = logging.getLogger(__name__)
 
-CHANNEL_URL = "https://www.youtube.com/@EBCmoneyshow/videos"
+CHANNEL_ID  = "UCQvsuaih5lE0n_Ne54nNezg"   # @EBCmoneyshow
+RSS_URL     = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
 DATA_FILE   = os.path.join(os.path.dirname(__file__), "static", "ebcshow.json")
-MAX_VIDEOS  = 5   # fetch latest N videos
+MAX_VIDEOS  = 6
+HEADERS     = {"User-Agent":
+               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+               "AppleWebKit/537.36 (KHTML, like Gecko) "
+               "Chrome/120.0.0.0 Safari/537.36",
+               "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8"}
 
 # ── Stock code extraction ─────────────────────────────────────────────────────
-# Chinese company name → stock code mapping
 CN_TO_CODE = {
     "台積電":"2330","TSMC":"2330","鴻海":"2317","聯發科":"2454",
     "聯電":"2303","台達電":"2308","廣達":"2382","緯創":"3231",
@@ -21,123 +28,137 @@ CN_TO_CODE = {
     "富邦金":"2881","國泰金":"2882","中信金":"2891","玉山金":"2884",
     "兆豐金":"2886","第一金":"2892","合庫金":"5880","元大金":"2885",
     "台塑":"1301","南亞":"1303","台化":"1326","台塑化":"6505",
-    "中鋼":"2002","中鴻":"2014","東鋼":"2006",
-    "陽明":"2609","長榮":"2603","萬海":"2615",
-    "創意":"3443","閎康":"3587","力積電":"6770","南亞科":"2408",
+    "中鋼":"2002","陽明":"2609","長榮":"2603","萬海":"2615",
+    "創意":"3443","力積電":"6770","南亞科":"2408","功率元件":"None",
     "邁威爾":"MRVL","Marvell":"MRVL","輝達":"NVDA","NVIDIA":"NVDA",
     "蘋果":"AAPL","Apple":"AAPL","微軟":"MSFT","亞馬遜":"AMZN",
     "超微":"AMD","博通":"AVGO","高通":"QCOM","特斯拉":"TSLA",
-    "谷歌":"GOOGL","Meta":"META","記憶體": None,"CPO": None,
+    "谷歌":"GOOGL","Meta":"META","SOXL":"SOXL","台指":"None",
 }
 
-def _extract_stocks(text: str):
-    """Extract TW (4-digit) and US ($TICKER) stock codes from text."""
+def _extract_stocks(text):
     if not text:
         return [], []
-    # TW: 4-digit numbers 1000-9999, not preceded by : or ( (avoid timestamps)
+    # TW 4-digit codes (exclude timestamps like 04:50 → preceded by colon)
     tw = []
-    for m in re.finditer(r'(?<![\d:(])\b([12345689]\d{3})\b(?![\d:])', text):
+    for m in re.finditer(r'(?<![\d:(])\b([12345689]\d{3})\b(?!\d|:)', text):
         code = m.group(1)
-        if 1000 <= int(code) <= 9999:
+        if 1101 <= int(code) <= 9999:
             tw.append(code)
-    # US: $TICKER or known company names
+    # US: $TICKER
     us = list(set(re.findall(r'\$([A-Z]{2,5})\b', text)))
-    # From company names
+    # Company names → codes
     for cn, code in CN_TO_CODE.items():
-        if cn in text and code:
-            if len(code) <= 5 and code.isupper():
-                if code not in us:
-                    us.append(code)
+        if cn in text and code and code != "None":
+            if code.isupper() and len(code) <= 5 and code not in us:
+                us.append(code)
             elif code.isdigit() and code not in tw:
                 tw.append(code)
     return list(set(tw)), list(set(us))
 
 
-def _parse_date(date_str: str) -> str:
-    """Parse yt-dlp upload_date (YYYYMMDD) to readable format."""
-    try:
-        d = datetime.datetime.strptime(date_str, "%Y%m%d")
-        return d.strftime("%Y-%m-%d")
-    except Exception:
-        return date_str or ""
+def _fetch_url(url, timeout=8):
+    req = urllib.request.Request(url, headers=HEADERS)
+    return urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", errors="replace")
 
 
-def fetch_latest_videos():
-    """Use yt-dlp to get latest videos with metadata."""
+def fetch_rss_videos():
+    """Get latest videos from YouTube RSS feed (no bot detection)."""
     try:
-        import yt_dlp
-    except ImportError:
-        log.error("yt-dlp not installed")
+        import feedparser
+        raw = _fetch_url(RSS_URL)
+        feed = feedparser.parse(raw)
+        videos = []
+        for entry in feed.entries[:MAX_VIDEOS]:
+            vid_id = getattr(entry, "yt_videoid", None) or entry.id.split(":")[-1]
+            pub    = getattr(entry, "published", "") or ""
+            date   = pub[:10] if pub else ""
+            videos.append({
+                "id":      vid_id,
+                "title":   entry.title,
+                "url":     f"https://www.youtube.com/watch?v={vid_id}",
+                "date":    date,
+                "thumbnail": f"https://img.youtube.com/vi/{vid_id}/maxresdefault.jpg",
+            })
+        return videos
+    except Exception as e:
+        log.error("RSS fetch error: %s", e)
         return []
 
-    ydl_opts = {
-        "quiet":         True,
-        "no_warnings":   True,
-        "extract_flat":  False,   # need full info for chapters/description
-        "playlistend":   MAX_VIDEOS,
-        "skip_download": True,
-        "ignoreerrors":  True,
-    }
-    videos = []
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(CHANNEL_URL, download=False)
-            for entry in (info.get("entries") or [])[:MAX_VIDEOS]:
-                if not entry:
-                    continue
-                vid_id  = entry.get("id","")
-                title   = entry.get("title","") or ""
-                desc    = entry.get("description","") or ""
-                date    = _parse_date(entry.get("upload_date",""))
-                thumb   = (entry.get("thumbnail") or
-                           f"https://img.youtube.com/vi/{vid_id}/maxresdefault.jpg")
-                # Chapters = structured discussion topics
-                chapters = [
-                    {"time": int(c.get("start_time",0)),
-                     "title": c.get("title","").strip()}
-                    for c in (entry.get("chapters") or [])
-                    if c.get("title","").strip()
-                ]
-                # Hashtags from description
-                hashtags = re.findall(r'#(\S+)', desc)
-                hashtags = [h for h in hashtags if h != "理財達人秀"][:8]
-                # Extract description first few useful lines (before URL lines)
-                desc_lines = [
-                    l.strip() for l in desc.split("\n")
-                    if l.strip() and not l.strip().startswith("http")
-                    and not l.strip().startswith("◆") and "#" not in l
-                ][:3]
-                # Extract stock codes from all text
-                all_text = title + " " + desc + " " + " ".join(hashtags)
-                tw_stocks, us_stocks = _extract_stocks(all_text)
-                # Duration
-                dur = entry.get("duration") or 0
-                dur_fmt = f"{dur//3600}:{(dur%3600)//60:02d}" if dur >= 3600 else f"{dur//60}:{dur%60:02d}"
 
-                videos.append({
-                    "id":         vid_id,
-                    "title":      title,
-                    "url":        f"https://www.youtube.com/watch?v={vid_id}",
-                    "date":       date,
-                    "thumbnail":  thumb,
-                    "duration":   dur_fmt if dur else "",
-                    "chapters":   chapters,
-                    "hashtags":   hashtags,
-                    "desc_lines": desc_lines,
-                    "tw_stocks":  sorted(set(tw_stocks)),
-                    "us_stocks":  sorted(set(us_stocks)),
-                })
+def scrape_video_page(vid_id):
+    """
+    Scrape YouTube video page for chapters, description, hashtags.
+    Returns dict with: chapters, hashtags, desc_lines, duration
+    """
+    try:
+        page = _fetch_url(f"https://www.youtube.com/watch?v={vid_id}")
+
+        # Duration from page
+        dur_m = re.search(r'"lengthSeconds":"(\d+)"', page)
+        duration = ""
+        if dur_m:
+            secs = int(dur_m.group(1))
+            duration = f"{secs//3600}:{(secs%3600)//60:02d}" if secs >= 3600 else f"{secs//60}:{secs%60:02d}"
+
+        # Description text (encoded in JSON in page source)
+        desc = ""
+        desc_m = re.search(r'"description":{"simpleText":"((?:[^"\\]|\\.)*)"}', page)
+        if desc_m:
+            raw = desc_m.group(1)
+            # Simple JSON unescape without unicode_escape (preserves UTF-8)
+            desc = raw.replace("\\n", "\n").replace('\\"', '"').replace("\\\\", "\\")
+        if not desc:
+            desc_m2 = re.search(r'"attributedDescription":{"content":"((?:[^"\\]|\\.)*)"', page)
+            if desc_m2:
+                raw = desc_m2.group(1)
+                desc = raw.replace("\\n", "\n").replace('\\"', '"').replace("\\\\", "\\")
+
+        # Hashtags
+        hashtags = [h for h in re.findall(r'#(\S+)', desc) if h != "理財達人秀"][:8]
+
+        # Chapters from engagementPanels or chapters key
+        chapters = []
+        # Method 1: chapterRenderer
+        for m in re.finditer(r'"chapterRenderer".*?"title":\{"simpleText":"([^"]+)"\}.*?"timeRangeStartMillis":(\d+)', page, re.DOTALL):
+            ms = int(m.group(2))
+            chapters.append({"time": ms // 1000, "title": m.group(1)})
+        # Method 2: macroMarkersListItemRenderer (newer)
+        if not chapters:
+            for m in re.finditer(r'"startMillis":"(\d+)"[^}]*"title":\{"simpleText":"([^"]+)"\}', page):
+                chapters.append({"time": int(m.group(1)) // 1000, "title": m.group(2)})
+        # Method 3: from description timestamps like (00:00) Title
+        if not chapters:
+            for m in re.finditer(r'\((\d{1,2}:\d{2}(?::\d{2})?)\)\s+(.+?)(?:\n|$)', desc):
+                t_str = m.group(1)
+                parts = t_str.split(":")
+                secs  = int(parts[-1]) + int(parts[-2])*60 + (int(parts[-3])*3600 if len(parts)==3 else 0)
+                chapters.append({"time": secs, "title": m.group(2).strip()})
+
+        # Clean desc_lines (useful lines, not links/hashtags/boilerplate)
+        desc_lines = []
+        for line in desc.split("\n"):
+            line = line.strip()
+            if (line and not line.startswith("http") and "#" not in line
+                    and "◆" not in line and len(line) > 4 and len(desc_lines) < 3):
+                desc_lines.append(html.unescape(line))
+
+        return {
+            "duration":   duration,
+            "chapters":   chapters[:6],
+            "hashtags":   hashtags,
+            "desc_lines": desc_lines,
+        }
     except Exception as e:
-        log.error("fetch_latest_videos error: %s", e)
-    return videos
+        log.warning("scrape_video_page(%s) error: %s", vid_id, e)
+        return {"duration":"","chapters":[],"hashtags":[],"desc_lines":[]}
 
 
 def run_daily_fetch():
-    """Main function: fetch latest videos and save to JSON."""
+    """Main: fetch RSS → scrape pages → extract stocks → save JSON."""
     log.info("EBC Show: starting daily fetch")
-    videos = fetch_latest_videos()
 
-    # Load existing to preserve previously fetched data
+    # Load existing data to preserve cached videos
     existing = {}
     if os.path.exists(DATA_FILE):
         try:
@@ -147,18 +168,32 @@ def run_daily_fetch():
         except Exception:
             pass
 
-    # Merge: new data overrides old for same ID
-    for v in videos:
-        existing[v["id"]] = v
+    rss_videos = fetch_rss_videos()
+    results = []
+    for v in rss_videos:
+        vid_id = v["id"]
+        if vid_id in existing and existing[vid_id].get("chapters"):
+            # Already have detailed data — reuse
+            results.append(existing[vid_id])
+            continue
+        # Scrape page for details
+        details = scrape_video_page(vid_id)
+        # Extract stocks from all text
+        all_text = (v["title"] + " " + " ".join(details.get("hashtags", []))
+                    + " " + " ".join(details.get("desc_lines", [])))
+        tw, us = _extract_stocks(all_text)
+        full = {**v, **details, "tw_stocks": sorted(set(tw)), "us_stocks": sorted(set(us))}
+        results.append(full)
+        existing[vid_id] = full
 
-    # Keep only latest MAX_VIDEOS * 3 (preserve some history)
-    all_videos = list(existing.values())
+    # Merge with previous and keep history
+    all_videos = list({v["id"]: v for v in list(existing.values())}.values())
     all_videos.sort(key=lambda x: x.get("date",""), reverse=True)
     all_videos = all_videos[:MAX_VIDEOS * 3]
 
     payload = {
-        "updated":   datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "videos":    all_videos,
+        "updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "videos":  all_videos,
     }
     os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -171,9 +206,11 @@ def run_daily_fetch():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     result = run_daily_fetch()
-    print(f"Fetched {len(result['videos'])} videos")
-    for v in result["videos"]:
-        print(f"\n[{v['date']}] {v['title'][:70]}")
-        print(f"  TW stocks: {v['tw_stocks']} | US: {v['us_stocks']}")
-        if v['chapters']:
-            print(f"  Chapters: {[c['title'][:30] for c in v['chapters']]}")
+    print(f"\n✓ Fetched {len(result['videos'])} videos")
+    for v in result["videos"][:5]:
+        print(f"\n[{v['date']}] {v['title'][:65]}")
+        print(f"  TW: {v.get('tw_stocks')} | US: {v.get('us_stocks')}")
+        if v.get("chapters"):
+            print(f"  Chapters: {[c['title'][:28] for c in v['chapters'][:3]]}")
+        if v.get("hashtags"):
+            print(f"  Tags: {v['hashtags'][:5]}")
