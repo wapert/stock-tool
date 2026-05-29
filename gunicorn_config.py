@@ -6,9 +6,9 @@ so by the time the first user request arrives the connection is ready.
 """
 import threading
 
-workers = 1   # single worker: all caches shared, ThreadPoolExecutor handles internal parallelism
+workers = 4   # Oracle 6GB RAM — 4 workers (~380MB each = ~1.5GB total)
 bind    = "127.0.0.1:5050"
-timeout = 120
+timeout = 300  # allow Gemini video analysis (can take 60-120s)
 
 
 def post_fork(server, worker):
