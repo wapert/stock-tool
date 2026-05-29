@@ -12,3 +12,6 @@ shioaji
 twstock==1.4.6
 tzdata==2026.2
 yfinance==1.2.0
+yt-dlp
+youtube-transcript-api
+feedparser

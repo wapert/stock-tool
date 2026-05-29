@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>理財達人秀摘要</title>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+      --border:#30363d; --text:#e6edf3; --muted:#8b949e; --dim:#484f58;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149;
+      --yellow:#e3b341; --orange:#f0883e; --purple:#d2a8ff;
+    }
+    body { font-family:"Helvetica Neue",Arial,"PingFang TC",sans-serif;
+           background:var(--bg); color:var(--text); min-height:100vh; }
+
+    .topbar { display:flex; align-items:center; gap:.75rem; padding:0 1.25rem;
+              height:50px; background:var(--bg2); border-bottom:1px solid var(--border);
+              position:sticky; top:0; z-index:10; }
+    .topbar h1 { font-size:1rem; font-weight:700; color:var(--red); white-space:nowrap; }
+    .nav-link  { color:var(--muted); font-size:.82rem; text-decoration:none;
+                 padding:.3rem .7rem; border:1px solid var(--border); border-radius:6px; }
+    .nav-link:hover { color:var(--text); border-color:var(--muted); }
+
+    .toolbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+               padding:.6rem 1.25rem; background:var(--bg2);
+               border-bottom:1px solid var(--border); }
+    .btn-refresh { padding:.36rem .9rem; border-radius:6px; border:none;
+                   background:#238636; color:#fff; font-size:.85rem;
+                   font-weight:600; cursor:pointer; }
+    .btn-refresh:disabled { opacity:.45; cursor:default; }
+    .meta { font-size:.72rem; color:var(--dim); }
+
+    /* Card grid */
+    .content { padding:1rem 1.25rem 3rem; }
+    .card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+                 gap:1rem; }
+
+    /* Video card */
+    .vid-card { background:var(--bg2); border:1px solid var(--border);
+                border-radius:12px; overflow:hidden;
+                transition:border-color .15s; display:flex; flex-direction:column; }
+    .vid-card:hover { border-color:var(--muted); }
+
+    /* Thumbnail */
+    .thumb-wrap { position:relative; width:100%; aspect-ratio:16/9;
+                  background:var(--bg3); overflow:hidden; }
+    .thumb-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+    .thumb-dur { position:absolute; bottom:.35rem; right:.35rem;
+                 background:rgba(0,0,0,.8); color:#fff; font-size:.68rem;
+                 font-weight:700; padding:.1rem .35rem; border-radius:3px; }
+    .thumb-date { position:absolute; top:.35rem; left:.35rem;
+                  background:rgba(13,17,23,.85); color:var(--muted);
+                  font-size:.68rem; padding:.1rem .35rem; border-radius:3px; }
+
+    /* Card body */
+    .card-body { padding:.75rem .85rem; flex:1; display:flex; flex-direction:column; gap:.5rem; }
+
+    .vid-title { font-size:.88rem; font-weight:700; line-height:1.4;
+                 display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+                 overflow:hidden; }
+    .vid-title a { color:var(--text); text-decoration:none; }
+    .vid-title a:hover { color:var(--blue); }
+
+    /* Chapters */
+    .chapters { display:flex; flex-direction:column; gap:.2rem; }
+    .chap-title { font-size:.65rem; font-weight:700; color:var(--dim);
+                  text-transform:uppercase; letter-spacing:.05em; margin-bottom:.15rem; }
+    .chap-item { display:flex; align-items:baseline; gap:.35rem; font-size:.76rem; }
+    .chap-time { color:var(--blue); font-size:.68rem; font-family:monospace;
+                 flex-shrink:0; min-width:2.8rem; }
+    .chap-text { color:var(--muted); line-height:1.3; }
+
+    /* Topics / hashtags */
+    .tags { display:flex; flex-wrap:wrap; gap:.3rem; }
+    .tag { font-size:.68rem; font-weight:600; padding:.1rem .38rem;
+           border-radius:4px; background:var(--bg3); color:var(--dim);
+           border:1px solid var(--border); }
+
+    /* Stock chips */
+    .stocks { display:flex; flex-wrap:wrap; gap:.3rem; margin-top:auto; }
+    .stock-chip { font-size:.72rem; font-weight:700; padding:.1rem .4rem;
+                  border-radius:4px; cursor:pointer; }
+    .stock-tw { background:#1f3a5f; color:var(--blue); }
+    .stock-us { background:#0d2a1a; color:var(--green); }
+
+    /* Watch button */
+    .watch-btn { display:block; text-align:center; padding:.38rem;
+                 border-radius:6px; background:#3d1515; color:var(--red);
+                 text-decoration:none; font-size:.78rem; font-weight:700;
+                 border:1px solid #8b1e1e; transition:background .12s; }
+    .watch-btn:hover { background:#5a1e1e; }
+
+    /* Spinner */
+    .spinner-wrap { display:flex; justify-content:center; align-items:center;
+                    gap:.75rem; padding:4rem; color:var(--muted); }
+    .spinner-ring { width:24px; height:24px; border:2px solid var(--border);
+                    border-top-color:var(--red); border-radius:50%;
+                    animation:spin .75s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* themes */
+    html.theme-white { --bg:#fff; --bg2:#f6f8fa; --bg3:#eaeef2;
+      --border:#d0d7de; --text:#24292f; --muted:#57606a; --dim:#8c959f; }
+    html.theme-lightblue { --bg:#eaf5ff; --bg2:#d7edf9; --bg3:#c2dff0;
+      --border:#8abcd8; --text:#0a2742; --muted:#2d6a8a; --dim:#5a90b0; }
+    html.theme-lightyellow { --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
+      --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318; }
+
+    @media (max-width:640px) {
+      .card-grid { grid-template-columns:1fr; }
+      .content   { padding:.6rem .75rem 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📺 理財達人秀摘要</h1>
+  <a class="nav-link" href="/">🏠 Home</a>
+  <a class="nav-link" href="/market">📊 市場</a>
+</div>
+
+<div class="toolbar">
+  <button class="btn-refresh" id="refreshBtn" onclick="refresh()">🔄 立即更新</button>
+  <span class="meta" id="metaText">自動每日早上 7:00 更新</span>
+</div>
+
+<div class="content" id="content">
+  <div class="spinner-wrap"><div class="spinner-ring"></div>載入中…</div>
+</div>
+
+<script>
+(function(){
+  const t = localStorage.getItem("theme")||"dark";
+  if(t!=="dark") document.documentElement.classList.add("theme-"+t);
+})();
+
+function fmtTime(secs) {
+  const m = Math.floor(secs/60), s = secs%60;
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+
+function renderCard(v) {
+  const chapters = (v.chapters||[]).slice(0,5).map(c =>
+    `<div class="chap-item">
+       <span class="chap-time">${fmtTime(c.time)}</span>
+       <span class="chap-text">${c.title}</span>
+     </div>`
+  ).join("");
+
+  const tags = (v.hashtags||[]).map(h =>
+    `<span class="tag">#${h}</span>`
+  ).join("");
+
+  const twChips = (v.tw_stocks||[]).map(s =>
+    `<span class="stock-chip stock-tw">${s}</span>`
+  ).join("");
+  const usChips = (v.us_stocks||[]).map(s =>
+    `<span class="stock-chip stock-us">$${s}</span>`
+  ).join("");
+
+  const descHtml = (v.desc_lines||[]).map(l =>
+    `<div style="font-size:.76rem;color:var(--muted);line-height:1.4">${l}</div>`
+  ).join("");
+
+  return `
+  <div class="vid-card">
+    <div class="thumb-wrap">
+      <a href="${v.url}" target="_blank" rel="noopener">
+        <img src="${v.thumbnail}" alt="${v.title}" loading="lazy"
+             onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'"/>
+      </a>
+      ${v.date ? `<span class="thumb-date">${v.date}</span>` : ""}
+      ${v.duration ? `<span class="thumb-dur">${v.duration}</span>` : ""}
+    </div>
+    <div class="card-body">
+      <div class="vid-title">
+        <a href="${v.url}" target="_blank" rel="noopener">${v.title}</a>
+      </div>
+      ${descHtml}
+      ${chapters ? `<div class="chapters"><div class="chap-title">📋 討論主題</div>${chapters}</div>` : ""}
+      ${tags ? `<div class="tags">${tags}</div>` : ""}
+      ${(twChips||usChips) ? `<div class="stocks">${twChips}${usChips}</div>` : ""}
+      <a class="watch-btn" href="${v.url}" target="_blank" rel="noopener">▶ 觀看影片</a>
+    </div>
+  </div>`;
+}
+
+async function loadData() {
+  try {
+    const data = await fetch("/ebcshow/data").then(r=>r.json());
+    if (data.error && !data.videos?.length) {
+      document.getElementById("content").innerHTML =
+        `<div style="text-align:center;color:var(--red);padding:3rem">${data.error}</div>`;
+      return;
+    }
+    const videos = data.videos || [];
+    document.getElementById("metaText").textContent =
+      `共 ${videos.length} 支影片 · 更新時間：${data.updated||"—"}`;
+    if (!videos.length) {
+      document.getElementById("content").innerHTML =
+        '<div style="text-align:center;color:var(--muted);padding:3rem">尚無資料，請點擊「立即更新」</div>';
+      return;
+    }
+    document.getElementById("content").innerHTML =
+      `<div class="card-grid">${videos.map(renderCard).join("")}</div>`;
+  } catch(e) {
+    document.getElementById("content").innerHTML =
+      `<div style="text-align:center;color:var(--red);padding:3rem">載入失敗：${e.message}</div>`;
+  }
+}
+
+async function refresh() {
+  const btn = document.getElementById("refreshBtn");
+  btn.disabled = true; btn.textContent = "更新中…";
+  document.getElementById("content").innerHTML =
+    '<div class="spinner-wrap"><div class="spinner-ring"></div>正在抓取最新影片，約需 20 秒…</div>';
+  try {
+    await fetch("/ebcshow/refresh", {method:"POST"});
+    await loadData();
+  } catch(e) {
+    alert("更新失敗：" + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "🔄 立即更新";
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

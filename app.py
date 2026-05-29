@@ -702,6 +702,32 @@ _TW_SCAN_LIST = [
     {"s":"00631L","n":"元大台灣50正2 ETF"},{"s":"00663L","n":"國泰台灣加權正2 ETF"},
 ]
 
+@app.route("/ebcshow")
+def ebcshow_page():
+    return render_template("ebcshow.html")
+
+@app.route("/ebcshow/data")
+def ebcshow_data():
+    data_file = os.path.join(os.path.dirname(__file__), "static", "ebcshow.json")
+    if os.path.exists(data_file):
+        with open(data_file, encoding="utf-8") as f:
+            return jsonify(json.load(f))
+    # No cache yet — trigger a fetch
+    try:
+        from ebcshow import run_daily_fetch
+        return jsonify(run_daily_fetch())
+    except Exception as e:
+        return jsonify({"error": str(e), "videos": []}), 500
+
+@app.route("/ebcshow/refresh", methods=["POST"])
+def ebcshow_refresh():
+    try:
+        from ebcshow import run_daily_fetch
+        result = run_daily_fetch()
+        return jsonify({"status": "ok", "count": len(result.get("videos", []))})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/calendar")
 def calendar_page():
     return render_template("calendar.html")
