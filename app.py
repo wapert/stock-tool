@@ -745,15 +745,16 @@ def ebcshow_summarize():
         return jsonify({"status": "processing"})
 
     def _run():
+        marker = f"/tmp/gemini_done_{vid_id}"
         try:
             from ebcshow import summarize_with_gemini, DATA_FILE
             import re as _re
             url    = f"https://www.youtube.com/watch?v={vid_id}"
             result = summarize_with_gemini(url)
             if not result:
-                _gemini_jobs[vid_id] = "error"
+                open(f"/tmp/gemini_err_{vid_id}", "w").close()
                 return
-            # Save to JSON + merge stocks
+            # Atomic write: write to .tmp then rename to avoid race conditions
             if os.path.exists(DATA_FILE):
                 with open(DATA_FILE, encoding="utf-8") as f:
                     data = json.load(f)
@@ -771,12 +772,15 @@ def ebcshow_summarize():
                         v["tw_stocks"] = sorted(set(tw))
                         v["us_stocks"] = sorted(set(us))
                         break
-                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                tmp = DATA_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
-            _gemini_jobs[vid_id] = "done"
+                os.replace(tmp, DATA_FILE)   # atomic rename — never partial
+            # Write marker file last (signals "done" to all workers)
+            open(marker, "w").close()
         except Exception as e:
             app.logger.error("Gemini job error %s: %s", vid_id, e)
-            _gemini_jobs[vid_id] = "error"
+            open(f"/tmp/gemini_err_{vid_id}", "w").close()
 
     _gemini_jobs[vid_id] = "processing"
     threading.Thread(target=_run, daemon=True).start()
@@ -784,24 +788,13 @@ def ebcshow_summarize():
 
 @app.route("/ebcshow/status")
 def ebcshow_status():
-    """Poll job status — checks JSON file (shared across all workers)."""
+    """Poll job status using marker files (reliable across all workers)."""
     vid_id = request.args.get("id","")
-    from ebcshow import DATA_FILE
-    # Check JSON file first (the only shared state across gunicorn workers)
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, encoding="utf-8") as f:
-                data = json.load(f)
-            for v in data.get("videos", []):
-                if v["id"] == vid_id:
-                    if v.get("gemini"):
-                        return jsonify({"id": vid_id, "status": "done"})
-                    break
-        except Exception:
-            pass
-    # Fall back to in-memory (same worker only)
-    state = _gemini_jobs.get(vid_id, "processing")
-    return jsonify({"id": vid_id, "status": state})
+    if os.path.exists(f"/tmp/gemini_done_{vid_id}"):
+        return jsonify({"id": vid_id, "status": "done"})
+    if os.path.exists(f"/tmp/gemini_err_{vid_id}"):
+        return jsonify({"id": vid_id, "status": "error"})
+    return jsonify({"id": vid_id, "status": "processing"})
 
 @app.route("/calendar")
 def calendar_page():
