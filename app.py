@@ -728,43 +728,66 @@ def ebcshow_refresh():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+_gemini_jobs = {}   # vid_id → "processing" | "done" | "error"
+
 @app.route("/ebcshow/summarize", methods=["POST"])
 def ebcshow_summarize():
-    """Re-run Gemini summary on a specific video."""
+    """Start Gemini summary in background thread — returns immediately."""
     vid_id = request.json.get("id","") if request.is_json else ""
     if not vid_id:
         return jsonify({"error": "id required"}), 400
-    try:
-        from ebcshow import summarize_with_gemini, DATA_FILE
-        url = f"https://www.youtube.com/watch?v={vid_id}"
-        result = summarize_with_gemini(url)
-        if not result:
-            return jsonify({"error": "Gemini unavailable or quota exceeded"}), 503
-        # Save back to JSON + merge Gemini stocks
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, encoding="utf-8") as f:
-                data = json.load(f)
+
+    # Already done?
+    if _gemini_jobs.get(vid_id) == "done":
+        return jsonify({"status": "done"})
+    # Already running?
+    if _gemini_jobs.get(vid_id) == "processing":
+        return jsonify({"status": "processing"})
+
+    def _run():
+        try:
+            from ebcshow import summarize_with_gemini, DATA_FILE
             import re as _re
-            for v in data.get("videos", []):
-                if v["id"] == vid_id:
-                    v["gemini"] = result
-                    # Merge Gemini-detected stocks
-                    tw = list(v.get("tw_stocks", []))
-                    us = list(v.get("us_stocks", []))
-                    for s in result.get("stocks", []):
-                        code = s.get("code", "")
-                        if code and _re.match(r'^\d{4}$', code) and code not in tw:
-                            tw.append(code)
-                        elif code and _re.match(r'^[A-Z]{2,5}$', code) and code not in us:
-                            us.append(code)
-                    v["tw_stocks"] = sorted(set(tw))
-                    v["us_stocks"] = sorted(set(us))
-                    break
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        return jsonify({"status": "ok", "gemini": result})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            url    = f"https://www.youtube.com/watch?v={vid_id}"
+            result = summarize_with_gemini(url)
+            if not result:
+                _gemini_jobs[vid_id] = "error"
+                return
+            # Save to JSON + merge stocks
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, encoding="utf-8") as f:
+                    data = json.load(f)
+                for v in data.get("videos", []):
+                    if v["id"] == vid_id:
+                        v["gemini"] = result
+                        tw = list(v.get("tw_stocks", []))
+                        us = list(v.get("us_stocks", []))
+                        for s in result.get("stocks", []):
+                            code = s.get("code", "")
+                            if code and _re.match(r'^\d{4}$', code) and code not in tw:
+                                tw.append(code)
+                            elif code and _re.match(r'^[A-Z]{2,5}$', code) and code not in us:
+                                us.append(code)
+                        v["tw_stocks"] = sorted(set(tw))
+                        v["us_stocks"] = sorted(set(us))
+                        break
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            _gemini_jobs[vid_id] = "done"
+        except Exception as e:
+            app.logger.error("Gemini job error %s: %s", vid_id, e)
+            _gemini_jobs[vid_id] = "error"
+
+    _gemini_jobs[vid_id] = "processing"
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "processing"})
+
+@app.route("/ebcshow/status")
+def ebcshow_status():
+    """Poll job status for a video."""
+    vid_id = request.args.get("id","")
+    state  = _gemini_jobs.get(vid_id, "unknown")
+    return jsonify({"id": vid_id, "status": state})
 
 @app.route("/calendar")
 def calendar_page():

@@ -294,19 +294,50 @@ async function refresh() {
 }
 
 async function runGemini(vidId, btn) {
-  btn.disabled = true; btn.textContent = "分析中…(30-60秒)";
+  btn.disabled = true; btn.textContent = "⏳ 啟動中…";
   try {
-    const res = await fetch("/ebcshow/summarize", {
+    // Start job (returns immediately)
+    const res  = await fetch("/ebcshow/summarize", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({id: vidId})
     });
-    const data = await res.json();
-    if (data.error) {
-      alert("分析失敗：" + data.error + "\n\n請確認 Gemini API 點數是否充足");
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch(e) {
+      alert("伺服器錯誤，請稍後再試\n" + text.slice(0,200));
       btn.disabled = false; btn.textContent = "▶ 立即分析";
       return;
     }
-    await loadData();  // refresh to show new summary
+    if (data.error) {
+      alert("分析失敗：" + data.error);
+      btn.disabled = false; btn.textContent = "▶ 立即分析";
+      return;
+    }
+
+    // Poll until done (Gemini takes 30-120 seconds)
+    let secs = 0;
+    const poll = setInterval(async () => {
+      secs += 3;
+      btn.textContent = `⏳ Gemini分析中 ${secs}s…`;
+      try {
+        const s = await fetch(`/ebcshow/status?id=${vidId}`).then(r=>r.json());
+        if (s.status === "done") {
+          clearInterval(poll);
+          btn.textContent = "✓ 完成，重新載入…";
+          await loadData();
+        } else if (s.status === "error") {
+          clearInterval(poll);
+          alert("Gemini 分析失敗，請確認 API 點數是否充足");
+          btn.disabled = false; btn.textContent = "▶ 立即分析";
+        } else if (secs > 180) {
+          clearInterval(poll);
+          alert("逾時（超過3分鐘），請重試");
+          btn.disabled = false; btn.textContent = "▶ 立即分析";
+        }
+      } catch(e) {}
+    }, 3000);
+
   } catch(e) {
     alert("錯誤：" + e.message);
     btn.disabled = false; btn.textContent = "▶ 立即分析";
