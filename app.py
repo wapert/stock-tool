@@ -1151,8 +1151,9 @@ def scan_run():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    from stock_data import (detect_movement_signals, calculate_rsi,
-                            calculate_volume_ratio, calculate_momentum_score)
+    from stock_data import (detect_movement_signals, detect_tw_signals,
+                            calculate_rsi, calculate_volume_ratio,
+                            calculate_momentum_score)
     results = []
 
     for sym in yf_tickers:
@@ -1168,7 +1169,14 @@ def scan_run():
             rsi       = calculate_rsi(closes)
             vol_ratio = calculate_volume_ratio(volumes) if volumes is not None else None
             w52h      = float(closes.tail(252).max())
-            signals   = detect_movement_signals(hist, price, rsi, vol_ratio, w52h)
+
+            if market == "TW":
+                signals, k_val, d_val = detect_tw_signals(
+                    hist, price, rsi, vol_ratio, w52h)
+            else:
+                signals = detect_movement_signals(hist, price, rsi, vol_ratio, w52h)
+                k_val, d_val = None, None
+
             if not signals:
                 continue
             score   = calculate_momentum_score(signals)
@@ -1179,6 +1187,8 @@ def scan_run():
                 "price":     round(price, 2),
                 "chg_pct":   chg_pct,
                 "rsi":       round(rsi, 1) if rsi else None,
+                "kd_k":      k_val,
+                "kd_d":      d_val,
                 "vol_ratio": round(vol_ratio, 1) if vol_ratio else None,
                 "signals":   signals,
                 "score":     score,

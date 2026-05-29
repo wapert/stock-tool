@@ -166,6 +166,102 @@ def calculate_volume_ratio(volumes):
     return round(cur / avg, 2) if avg > 0 else None
 
 
+def calculate_kd(hist, period=9):
+    """
+    Taiwan-standard KD Stochastic (9-period RSV, 1/3 smoothing).
+    Returns (k, d, prev_k, prev_d) — last two bars for crossover detection.
+    """
+    try:
+        h = hist['High'].rolling(period).max()
+        l = hist['Low'].rolling(period).min()
+        rsv = ((hist['Close'] - l) / (h - l) * 100).fillna(50)
+        # K = 2/3 * prev_K + 1/3 * RSV  (com=2 EWM starting at 50)
+        k = rsv.ewm(com=2, adjust=False).mean()
+        d = k.ewm(com=2, adjust=False).mean()
+        k_val  = round(float(k.iloc[-1]),  1)
+        d_val  = round(float(d.iloc[-1]),  1)
+        pk_val = round(float(k.iloc[-2]),  1) if len(k) > 1 else k_val
+        pd_val = round(float(d.iloc[-2]),  1) if len(d) > 1 else d_val
+        return k_val, d_val, pk_val, pd_val
+    except Exception:
+        return None, None, None, None
+
+
+def detect_tw_signals(hist, current_price, rsi, vol_ratio, week52_high):
+    """
+    Taiwan-specific technical signals:
+    KD金叉/死叉, 多頭/空頭排列, 低檔整理, 乖離, 外資大買 (via existing vol_ratio proxy)
+    Returns list of {type, text} dicts.
+    """
+    signals = []
+    if hist is None or len(hist) < 25 or current_price is None:
+        return signals, None, None
+
+    try:
+        closes = hist['Close']
+
+        # ── KD Stochastic ────────────────────────────────────────────────
+        k, d, pk, pd = calculate_kd(hist)
+        if k is not None and d is not None:
+            if pk < pd and k >= d:               # K crossed above D
+                if k < 20:
+                    signals.append({"type":"bull","text":"KD低檔金叉"})
+                elif k < 50:
+                    signals.append({"type":"bull","text":"KD金叉"})
+                else:
+                    signals.append({"type":"warn","text":"KD高檔金叉"})
+            elif pk > pd and k <= d:             # K crossed below D
+                if k > 80:
+                    signals.append({"type":"bear","text":"KD高檔死叉"})
+                else:
+                    signals.append({"type":"bear","text":"KD死叉"})
+            elif k < 20:
+                signals.append({"type":"bull","text":"KD超賣(<20)"})
+            elif k > 80:
+                signals.append({"type":"warn","text":"KD超買(>80)"})
+
+        # ── MA alignment ─────────────────────────────────────────────────
+        sma5  = float(closes.rolling(5).mean().iloc[-1])
+        sma10 = float(closes.rolling(10).mean().iloc[-1]) if len(closes)>=10 else None
+        sma20 = float(closes.rolling(20).mean().iloc[-1]) if len(closes)>=20 else None
+        sma60 = float(closes.rolling(60).mean().iloc[-1]) if len(closes)>=60 else None
+
+        if sma10 and sma20 and sma60:
+            if sma5 > sma10 > sma20 > sma60 and current_price > sma5:
+                signals.append({"type":"bull","text":"多頭排列"})
+            elif sma5 < sma10 < sma20 < sma60 and current_price < sma5:
+                signals.append({"type":"bear","text":"空頭排列"})
+
+        # ── Price vs MA20 crossover ───────────────────────────────────────
+        if sma20:
+            prev = float(closes.iloc[-2])
+            if prev < sma20 <= current_price:
+                signals.append({"type":"bull","text":"突破月線"})
+            elif prev >= sma20 > current_price:
+                signals.append({"type":"bear","text":"跌破月線"})
+
+        # ── 乖離率 (deviation from MA20) ─────────────────────────────────
+        if sma20 and sma20 > 0:
+            dev = (current_price - sma20) / sma20 * 100
+            if dev > 10:
+                signals.append({"type":"warn","text":f"乖離過大+{dev:.1f}%"})
+            elif dev < -10:
+                signals.append({"type":"bull","text":f"低檔乖離{dev:.1f}%"})
+
+        # ── 52W high ─────────────────────────────────────────────────────
+        if week52_high and current_price >= week52_high * 0.98:
+            signals.append({"type":"bull","text":"近年高區"})
+
+        # ── Volume ───────────────────────────────────────────────────────
+        if vol_ratio and vol_ratio >= 2.5:
+            signals.append({"type":"warn","text":f"爆量{vol_ratio:.1f}x"})
+
+    except Exception:
+        pass
+
+    return signals[:4], k, d   # return KD values too for display
+
+
 def calculate_rsi(prices, period=14):
     delta = prices.diff()
     gain = delta.where(delta > 0, 0).rolling(window=period).mean()

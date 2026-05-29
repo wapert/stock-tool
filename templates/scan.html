@@ -162,6 +162,28 @@
                    flex-wrap:wrap; margin-bottom:.3rem; font-size:.78rem; }
     .m-card-sigs { display:flex; flex-wrap:wrap; gap:.25rem; }
 
+    /* ── TW card layout (colored left border) ── */
+    .tw-card { background:var(--bg2); border:1px solid var(--border);
+               border-radius:10px; overflow:hidden; display:flex; }
+    .tw-card-bar { width:5px; flex-shrink:0; }
+    .tw-card-bar.bull { background:var(--green); }
+    .tw-card-bar.bear { background:var(--red); }
+    .tw-card-bar.warn { background:var(--yellow); }
+    .tw-card-body { flex:1; padding:.55rem .7rem; min-width:0; }
+    .tw-card-top  { display:flex; align-items:center; gap:.4rem; margin-bottom:.25rem; }
+    .tw-card-sym  { font-weight:700; color:var(--blue); font-size:.9rem; white-space:nowrap; }
+    .tw-card-name { font-size:.72rem; color:var(--muted); flex:1;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tw-card-chg  { font-size:.85rem; font-weight:700; white-space:nowrap; }
+    .tw-card-mid  { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;
+                    font-size:.74rem; margin-bottom:.3rem; }
+    .tw-card-kd   { color:var(--purple); font-size:.72rem; }
+    .tw-card-sigs { display:flex; flex-wrap:wrap; gap:.22rem; }
+    /* KD progress bar */
+    .kd-bar-wrap  { display:flex; align-items:center; gap:.25rem; font-size:.68rem; color:var(--dim); }
+    .kd-bar       { height:4px; border-radius:2px; background:var(--bg3); width:55px; overflow:hidden; }
+    .kd-bar-fill  { height:100%; border-radius:2px; }
+
     @media (max-width:640px) {
       .topbar { padding:0 .75rem; }
       .toolbar { padding:.5rem .75rem; }
@@ -187,14 +209,25 @@
     <button class="mkt-btn"        id="mktTW" onclick="setMarket('TW')">🇹🇼 TW</button>
   </div>
 
-  <!-- Signal filter -->
-  <div class="filter-chips" id="filterChips">
-    <button class="f-chip active" data-f="all"       onclick="setFilter('all')">全部</button>
-    <button class="f-chip"        data-f="squeeze"   onclick="setFilter('squeeze')">⚡ Squeeze</button>
-    <button class="f-chip"        data-f="supertrend"onclick="setFilter('supertrend')">🔼 趨勢翻轉</button>
-    <button class="f-chip"        data-f="ma"        onclick="setFilter('ma')">📈 MA突破</button>
-    <button class="f-chip"        data-f="52w"       onclick="setFilter('52w')">🏆 52W高</button>
-    <button class="f-chip"        data-f="volume"    onclick="setFilter('volume')">💥 爆量</button>
+  <!-- US Signal filters -->
+  <div class="filter-chips" id="filterChipsUS">
+    <button class="f-chip active" data-f="all"        onclick="setFilter('all')">全部</button>
+    <button class="f-chip"        data-f="squeeze"    onclick="setFilter('squeeze')">⚡ Squeeze</button>
+    <button class="f-chip"        data-f="supertrend" onclick="setFilter('supertrend')">🔼 趨勢翻轉</button>
+    <button class="f-chip"        data-f="ma"         onclick="setFilter('ma')">📈 MA突破</button>
+    <button class="f-chip"        data-f="52w"        onclick="setFilter('52w')">🏆 52W高</button>
+    <button class="f-chip"        data-f="volume"     onclick="setFilter('volume')">💥 爆量</button>
+  </div>
+  <!-- TW Signal filters -->
+  <div class="filter-chips" id="filterChipsTW" style="display:none">
+    <button class="f-chip active" data-f="all"        onclick="setFilter('all')">全部</button>
+    <button class="f-chip"        data-f="kd_gold"    onclick="setFilter('kd_gold')">📈 KD金叉</button>
+    <button class="f-chip"        data-f="kd_dead"    onclick="setFilter('kd_dead')">📉 KD死叉</button>
+    <button class="f-chip"        data-f="kd_over"    onclick="setFilter('kd_over')">🔥 KD超賣</button>
+    <button class="f-chip"        data-f="bull_align" onclick="setFilter('bull_align')">🐂 多頭排列</button>
+    <button class="f-chip"        data-f="bear_align" onclick="setFilter('bear_align')">🐻 空頭排列</button>
+    <button class="f-chip"        data-f="ma_break"   onclick="setFilter('ma_break')">突破月線</button>
+    <button class="f-chip"        data-f="volume"     onclick="setFilter('volume')">💥 爆量</button>
   </div>
 
   <button class="btn-scan" id="scanBtn" onclick="runScan()">▶ 開始掃描</button>
@@ -217,6 +250,11 @@ function setMarket(m) {
   _market = m;
   document.getElementById("mktUS").classList.toggle("active", m === "US");
   document.getElementById("mktTW").classList.toggle("active", m === "TW");
+  document.getElementById("filterChipsUS").style.display = m === "US" ? "" : "none";
+  document.getElementById("filterChipsTW").style.display = m === "TW" ? "" : "none";
+  _filter = "all";
+  document.querySelectorAll(".f-chip").forEach(b =>
+    b.classList.toggle("active", b.dataset.f === "all"));
 }
 
 function setFilter(f) {
@@ -255,10 +293,19 @@ async function runScan() {
 }
 
 const FILTER_MAP = {
+  // US filters
   "squeeze":    ["⚡ Squeeze多","⚡ Squeeze空","⚡ 能量蓄積"],
   "supertrend": ["🔼 趨勢轉多","🔽 趨勢轉空"],
   "ma":         ["突破MA20","突破MA50","跌破MA20"],
   "52w":        ["🏆 破52W高","近52W高"],
+  // TW filters
+  "kd_gold":    texts => texts.some(t => t.includes("金叉")),
+  "kd_dead":    texts => texts.some(t => t.includes("死叉")),
+  "kd_over":    texts => texts.some(t => t.includes("超賣")),
+  "bull_align": ["多頭排列"],
+  "bear_align": ["空頭排列"],
+  "ma_break":   ["突破月線","跌破月線"],
+  // shared
   "volume":     texts => texts.some(t => t.startsWith("爆量")),
 };
 
@@ -298,26 +345,56 @@ function renderResults(all) {
   const isTW = _market === "TW";
   const pFmt = (p, c) => c === "TWD" ? "NT$" + p.toLocaleString() : "$" + p.toFixed(2);
 
-  // mobile cards
+  // mobile cards — TW uses colored-border card, US uses standard card
   const mCards = sorted.map(r => {
     const chgCls = r.chg_pct >= 0 ? "pos" : "neg";
     const rsiCls = (r.rsi||50) >= 70 ? "rsi-hot" : (r.rsi||50) <= 30 ? "rsi-cold" : "rsi-norm";
     const sc = r.score || 0;
     const scCls = sc>=6?"score-s3":sc>=3?"score-s2":sc>=1?"score-s1":sc===0?"score-s0":sc>=-2?"score-sm1":"score-sm2";
     const sigHtml = r.signals.map(s => '<span class="sig-chip sig-'+s.type+'">'+s.text+'</span>').join("");
-    return `<div class="m-card">
-      <div class="m-card-top">
-        <span class="score-badge ${scCls}">${sc>0?"+":""}${sc}</span>
-        <span class="m-card-sym">${r.symbol}</span>
-        <span class="m-card-co">${r.name}</span>
-        <span class="${chgCls}" style="font-weight:600;font-size:.82rem;">${r.chg_pct>=0?"+":""}${r.chg_pct}%</span>
-      </div>
-      <div class="m-card-mid">
-        ${r.rsi!=null?'<span class="rsi-chip '+rsiCls+'">RSI '+r.rsi+'</span>':''}
-        ${r.vol_ratio!=null?'<span style="color:var(--dim)">量比 '+r.vol_ratio+'x</span>':''}
-      </div>
-      <div class="m-card-sigs">${sigHtml}</div>
-    </div>`;
+    const bullSigs = r.signals.filter(s=>s.type==="bull").length;
+    const bearSigs = r.signals.filter(s=>s.type==="bear").length;
+
+    if (_market === "TW") {
+      // Colored left-border card like the photo
+      const barCls = bullSigs > bearSigs ? "bull" : bearSigs > bullSigs ? "bear" : "warn";
+      const kdHtml = r.kd_k != null
+        ? `<span class="tw-card-kd">K:${r.kd_k} D:${r.kd_d}</span>
+           <div class="kd-bar-wrap">
+             <div class="kd-bar"><div class="kd-bar-fill" style="width:${Math.min(r.kd_k,100)}%;background:${r.kd_k>r.kd_d?'#3fb950':'#f85149'}"></div></div>
+           </div>` : "";
+      return `<div class="tw-card">
+        <div class="tw-card-bar ${barCls}"></div>
+        <div class="tw-card-body">
+          <div class="tw-card-top">
+            <span class="tw-card-sym">${r.symbol}</span>
+            <span class="tw-card-name">${r.name}</span>
+            <span class="tw-card-chg ${chgCls}">${r.chg_pct>=0?"+":""}${r.chg_pct}%</span>
+          </div>
+          <div class="tw-card-mid">
+            <span class="score-badge ${scCls}">${sc>0?"+":""}${sc}</span>
+            ${r.rsi!=null?'<span class="rsi-chip '+rsiCls+'">RSI '+r.rsi+'</span>':''}
+            ${kdHtml}
+            ${r.vol_ratio!=null?'<span style="color:var(--dim);font-size:.7rem">量比 '+r.vol_ratio+'x</span>':''}
+          </div>
+          <div class="tw-card-sigs">${sigHtml}</div>
+        </div>
+      </div>`;
+    } else {
+      return `<div class="m-card">
+        <div class="m-card-top">
+          <span class="score-badge ${scCls}">${sc>0?"+":""}${sc}</span>
+          <span class="m-card-sym">${r.symbol}</span>
+          <span class="m-card-co">${r.name}</span>
+          <span class="${chgCls}" style="font-weight:600;font-size:.82rem;">${r.chg_pct>=0?"+":""}${r.chg_pct}%</span>
+        </div>
+        <div class="m-card-mid">
+          ${r.rsi!=null?'<span class="rsi-chip '+rsiCls+'">RSI '+r.rsi+'</span>':''}
+          ${r.vol_ratio!=null?'<span style="color:var(--dim)">量比 '+r.vol_ratio+'x</span>':''}
+        </div>
+        <div class="m-card-sigs">${sigHtml}</div>
+      </div>`;
+    }
   }).join("");
 
   document.getElementById("content").innerHTML = `
@@ -334,6 +411,7 @@ function renderResults(all) {
           <th onclick="sortBy('sym')">股票代碼${_sortCol==='sym'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th onclick="sortBy('chg')">漲跌%${_sortCol==='chg'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th onclick="sortBy('rsi')">RSI${_sortCol==='rsi'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
+          ${_market==='TW'?'<th style="color:var(--purple)">KD</th>':''}
           <th onclick="sortBy('vol')">量比${_sortCol==='vol'?' <span class="sort-icon">'+(_sortDir==='desc'?'▼':'▲')+'</span>':''}</th>
           <th>訊號</th>
         </tr>
@@ -357,6 +435,7 @@ function renderResults(all) {
             </td>
             <td class="${chgCls}">${r.chg_pct >= 0 ? "+" : ""}${r.chg_pct}%</td>
             <td><span class="rsi-chip ${rsiCls}">${r.rsi != null ? r.rsi : "—"}</span></td>
+            ${_market==='TW'?`<td style="color:var(--purple);font-size:.78rem;">${r.kd_k!=null?'K:'+r.kd_k+' D:'+r.kd_d:'—'}</td>`:''}
             <td>${r.vol_ratio != null ? r.vol_ratio + "x" : '<span class="na">—</span>'}</td>
             <td><div class="sig-wrap">${sigHtml}</div></td>
           </tr>`;
