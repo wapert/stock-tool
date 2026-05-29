@@ -220,7 +220,7 @@ function renderCard(v) {
       ${mktPts?`<div class="ai-market">${mktPts}</div>`:""}
       ${keyPts?`<ul class="ai-points">${keyPts}</ul>`:""}
     </div>`;
-  } else if (v.chapters && v.chapters.length >= 2) {
+  } else {
     geminiHtml = `<div class="ai-section"><div class="ai-pending">🤖 AI 摘要待生成
       <button onclick="runGemini('${v.id}',this)" style="margin-left:.5rem;font-size:.72rem;padding:.1rem .5rem;background:#1e1040;color:#c084fc;border:1px solid #7c3aed55;border-radius:4px;cursor:pointer;">▶ 立即分析</button>
     </div></div>`;

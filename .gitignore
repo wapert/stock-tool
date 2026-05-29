@@ -3,3 +3,8 @@ __pycache__/
 *.pyo
 .env
 profiles.json
+# Secret keys - never commit
+.env
+gemini_key.txt
+*_key.txt
+*_secret.txt

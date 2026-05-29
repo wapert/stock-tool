@@ -10,7 +10,7 @@ import os, re, json, datetime, logging, urllib.request, html
 log = logging.getLogger(__name__)
 
 CHANNEL_ID   = "UCQvsuaih5lE0n_Ne54nNezg"   # @EBCmoneyshow
-GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "AIzaSyB_Zp7E5jnPQUTBR6vJfjsyi1dqKpXH1hE")
+GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")   # set via env var on each VM
 GEMINI_MODEL = "gemini-2.0-flash"
 RSS_URL     = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
 DATA_FILE   = os.path.join(os.path.dirname(__file__), "static", "ebcshow.json")
@@ -232,9 +232,9 @@ def run_daily_fetch():
         all_text = (v["title"] + " " + " ".join(details.get("hashtags", []))
                     + " " + " ".join(details.get("desc_lines", [])))
         tw, us = _extract_stocks(all_text)
-        # Gemini AI summary (only for full-version videos with chapters, to save API cost)
+        # Gemini AI summary (run for all videos)
         gemini = None
-        if GEMINI_KEY and len(details.get("chapters", [])) >= 2:
+        if GEMINI_KEY:
             gemini = summarize_with_gemini(v["url"])
             # Merge stocks from Gemini result if available
             if gemini and gemini.get("stocks"):
