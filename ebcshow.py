@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 CHANNEL_ID   = "UCQvsuaih5lE0n_Ne54nNezg"   # @EBCmoneyshow
 GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")   # set via env var on each VM
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 RSS_URL     = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
 DATA_FILE   = os.path.join(os.path.dirname(__file__), "static", "ebcshow.json")
 MAX_VIDEOS  = 6
