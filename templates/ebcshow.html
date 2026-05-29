@@ -87,6 +87,31 @@
     .stock-tw { background:#1f3a5f; color:var(--blue); }
     .stock-us { background:#0d2a1a; color:var(--green); }
 
+    /* ── Processing overlay ── */
+    .processing-overlay {
+      position:absolute; inset:0; border-radius:12px;
+      background:rgba(13,17,23,.75);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      z-index:20; gap:.6rem;
+    }
+    .hg-icon { font-size:2.8rem; animation:hg-flip 1.2s steps(1) infinite; }
+    @keyframes hg-flip {
+      0%,49% { content:'⏳'; transform:rotate(0deg); }
+      50%,100%{ content:'⌛'; transform:rotate(180deg); }
+    }
+    .hg-icon::before { content:'⏳'; }
+    @keyframes hg-spin {
+      0%   { transform:rotate(0deg) scale(1); }
+      25%  { transform:rotate(0deg) scale(1.1); }
+      50%  { transform:rotate(180deg) scale(1); }
+      75%  { transform:rotate(180deg) scale(1.1); }
+      100% { transform:rotate(360deg) scale(1); }
+    }
+    .hg-icon { animation:hg-spin 2s ease-in-out infinite; display:inline-block; }
+    .hg-text { color:#fff; font-size:.82rem; font-weight:700; }
+    .hg-secs { color:var(--dim); font-size:.72rem; }
+
     /* AI summary section */
     .ai-section { background:var(--bg3); border-radius:8px; padding:.6rem .75rem;
                   border-left:3px solid var(--purple); margin-top:.1rem; }
@@ -294,9 +319,29 @@ async function refresh() {
 }
 
 async function runGemini(vidId, btn) {
-  btn.disabled = true; btn.textContent = "⏳ 啟動中…";
+  btn.disabled = true; btn.textContent = "啟動中…";
+
+  // Add spinning hourglass overlay to this card
+  const card = btn.closest(".vid-card");
+  let overlay = null;
+  if (card) {
+    card.style.position = "relative";
+    overlay = document.createElement("div");
+    overlay.className = "processing-overlay";
+    overlay.id = `overlay-${vidId}`;
+    overlay.innerHTML = `
+      <span class="hg-icon">⏳</span>
+      <div class="hg-text">Gemini AI 分析中</div>
+      <div class="hg-secs" id="hg-secs-${vidId}">0 秒</div>`;
+    card.appendChild(overlay);
+  }
+
+  const removeOverlay = () => {
+    const el = document.getElementById(`overlay-${vidId}`);
+    if (el) el.remove();
+  };
+
   try {
-    // Start job (returns immediately)
     const res  = await fetch("/ebcshow/summarize", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({id: vidId})
@@ -305,33 +350,40 @@ async function runGemini(vidId, btn) {
     let data;
     try { data = JSON.parse(text); }
     catch(e) {
+      removeOverlay();
       alert("伺服器錯誤，請稍後再試\n" + text.slice(0,200));
       btn.disabled = false; btn.textContent = "▶ 立即分析";
       return;
     }
     if (data.error) {
+      removeOverlay();
       alert("分析失敗：" + data.error);
       btn.disabled = false; btn.textContent = "▶ 立即分析";
       return;
     }
 
-    // Poll until done (Gemini takes 30-120 seconds)
+    // Poll until done, update elapsed seconds
     let secs = 0;
     const poll = setInterval(async () => {
       secs += 3;
-      btn.textContent = `⏳ Gemini分析中 ${secs}s…`;
+      const secsEl = document.getElementById(`hg-secs-${vidId}`);
+      if (secsEl) secsEl.textContent = secs + " 秒";
+      btn.textContent = `${secs}s…`;
       try {
         const s = await fetch(`/ebcshow/status?id=${vidId}`).then(r=>r.json());
         if (s.status === "done") {
           clearInterval(poll);
-          btn.textContent = "✓ 完成，重新載入…";
+          removeOverlay();
+          btn.textContent = "✓ 完成";
           await loadData();
         } else if (s.status === "error") {
           clearInterval(poll);
+          removeOverlay();
           alert("Gemini 分析失敗，請確認 API 點數是否充足");
           btn.disabled = false; btn.textContent = "▶ 立即分析";
         } else if (secs > 180) {
           clearInterval(poll);
+          removeOverlay();
           alert("逾時（超過3分鐘），請重試");
           btn.disabled = false; btn.textContent = "▶ 立即分析";
         }
@@ -339,6 +391,7 @@ async function runGemini(vidId, btn) {
     }, 3000);
 
   } catch(e) {
+    removeOverlay();
     alert("錯誤：" + e.message);
     btn.disabled = false; btn.textContent = "▶ 立即分析";
   }
