@@ -318,7 +318,14 @@ async function refresh() {
   }
 }
 
+let _geminiRunning = false;
+
 async function runGemini(vidId, btn) {
+  if (_geminiRunning) {
+    alert("⚠️ 目前已有一支影片正在 Gemini 分析中，請等待完成後再分析下一支。");
+    return;
+  }
+  _geminiRunning = true;
   btn.disabled = true; btn.textContent = "啟動中…";
 
   // Add spinning hourglass overlay to this card
@@ -339,6 +346,7 @@ async function runGemini(vidId, btn) {
   const removeOverlay = () => {
     const el = document.getElementById(`overlay-${vidId}`);
     if (el) el.remove();
+    _geminiRunning = false;
   };
 
   try {
