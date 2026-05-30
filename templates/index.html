@@ -1385,13 +1385,10 @@ function _doRenderRows(results) {
         <td colspan="13" style="color:var(--red);font-size:0.83rem;">${escHtml(r.error)}</td>
       </tr>`;
     return `<tr>
-      <td style="display:flex;align-items:flex-start;gap:.3rem;padding:.5rem .5rem .5rem .4rem;">
-        <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})" style="margin-top:.15rem;flex-shrink:0;">▼</button>
-        <div>
-          <span class="symbol-badge">${escHtml(r.display_symbol || r.symbol)}</span>${r.is_taiwan ? ' <span title="台灣股市">🇹🇼</span>' : ''}<br/>
-          <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
-          ${(r.signals||[]).length ? scoreBadge(r.momentum_score) + (r.signals||[]).map(s=>`<span class="sig-chip sig-${s.type}">${s.text}</span>`).join("") : ""}
-        </div>
+      <td>
+        <span class="symbol-badge">${escHtml(r.display_symbol || r.symbol)}</span>${r.is_taiwan ? ' <span title="台灣股市">🇹🇼</span>' : ''} <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})">▼</button><br/>
+        <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
+        ${(r.signals||[]).length ? scoreBadge(r.momentum_score) + (r.signals||[]).map(s=>`<span class="sig-chip sig-${s.type}">${s.text}</span>`).join("") : ""}
       </td>
       <td class="price">
         ${r.current_price_fmt} ${priceArrow(r.symbol, r.current_price)}<br/>
