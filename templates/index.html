@@ -1027,7 +1027,6 @@
             <th class="sort-th" data-col="analyst" onclick="sortByCol('analyst')">分析師 / 買入%</th>
             <th class="sort-th col-sep" data-col="rec" onclick="sortByCol('rec')">投資建議</th>
             <th>核心評論</th>
-            <th style="width:36px;"></th>
           </tr>
         </thead>
         <tbody id="resultBody">
@@ -1383,13 +1382,16 @@ function _doRenderRows(results) {
     if (r.error) return `
       <tr>
         <td><span class="symbol-badge">${escHtml(r.symbol || "?")}</span></td>
-        <td colspan="14" style="color:var(--red);font-size:0.83rem;">${escHtml(r.error)}</td>
+        <td colspan="13" style="color:var(--red);font-size:0.83rem;">${escHtml(r.error)}</td>
       </tr>`;
     return `<tr>
-      <td>
-        <span class="symbol-badge">${escHtml(r.display_symbol || r.symbol)}</span>${r.is_taiwan ? ' <span title="台灣股市">🇹🇼</span>' : ''}<br/>
-        <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
-        ${(r.signals||[]).length ? scoreBadge(r.momentum_score) + (r.signals||[]).map(s=>`<span class="sig-chip sig-${s.type}">${s.text}</span>`).join("") : ""}
+      <td style="display:flex;align-items:flex-start;gap:.3rem;padding:.5rem .5rem .5rem .4rem;">
+        <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})" style="margin-top:.15rem;flex-shrink:0;">▼</button>
+        <div>
+          <span class="symbol-badge">${escHtml(r.display_symbol || r.symbol)}</span>${r.is_taiwan ? ' <span title="台灣股市">🇹🇼</span>' : ''}<br/>
+          <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
+          ${(r.signals||[]).length ? scoreBadge(r.momentum_score) + (r.signals||[]).map(s=>`<span class="sig-chip sig-${s.type}">${s.text}</span>`).join("") : ""}
+        </div>
       </td>
       <td class="price">
         ${r.current_price_fmt} ${priceArrow(r.symbol, r.current_price)}<br/>
@@ -1415,12 +1417,9 @@ function _doRenderRows(results) {
           ${escHtml(r.rating_change.label)} ${escHtml(r.rating_change.firm)}</span>` : ''}
       </td>
       <td class="td-comment">${escHtml(r.comment)}</td>
-      <td style="text-align:center;">
-        <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})">▼</button>
-      </td>
     </tr>
     <tr class="detail-row" id="detail-${i}" data-sym="${escHtml(r.display_symbol||r.symbol)}" style="display:none">
-      <td colspan="14">${detailHtml(r)}</td>
+      <td colspan="13">${detailHtml(r)}</td>
     </tr>`;
   }).join("");
 }  // end _doRenderRows
