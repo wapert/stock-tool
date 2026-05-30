@@ -281,10 +281,10 @@
     .metric-label { font-size: 0.62rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
     .metric-val   { font-size: 0.82rem; font-weight: 600; }
 
-    .rsi-hot  { color: var(--red); }
+    .rsi-hot  { background:#3d1515; color:var(--red);    }  /* US overbought=sell=red */
     .rsi-warm { color: var(--green); }
-    .rsi-cold { color: #79c0ff; }
-    .rsi-norm { color: var(--muted); }
+    .rsi-cold { background:#0d2a1a; color:var(--green); }  /* US oversold=buy=green */
+    .rsi-norm { background:#2d1f0e; color:var(--orange); }  /* neutral=orange */
     .macd-bull { color: var(--green); }
     .macd-bear { color: var(--red); }
     .kd-over   { color: #58a6ff;      font-weight:700; }
@@ -405,6 +405,8 @@
     .tw-card .neg        { color:var(--green) !important; }
     .tw-card .price-up   { color:var(--red)   !important; }
     .tw-card .price-dn   { color:var(--green) !important; }
+    .tw-card .rsi-hot  { background:#0d2a1a !important; color:var(--green) !important; }
+    .tw-card .rsi-cold { background:#3d1515 !important; color:var(--red)   !important; }
     .tw-card .macd-bull  { color:var(--red)   !important; }
     .tw-card .macd-bear  { color:var(--green) !important; }
     .tw-card .sig-chip.sig-bull { background:#3d1515 !important; color:var(--red)   !important; }

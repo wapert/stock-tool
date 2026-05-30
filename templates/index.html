@@ -448,6 +448,9 @@
     tr.tw-row .neg        { color:var(--green) !important; }
     tr.tw-row .price-up   { color:var(--red)   !important; }
     tr.tw-row .price-dn   { color:var(--green) !important; }
+    tr.tw-row .rsi-hot  { background:#0d2a1a !important; color:var(--green) !important; }  /* TW overbought=bear=green */
+    tr.tw-row .rsi-cold { background:#3d1515 !important; color:var(--red)   !important; }  /* TW oversold=bull=red */
+    /* rsi-norm stays orange for both markets */
     tr.tw-row .macd-bull  { color:var(--red)   !important; }
     tr.tw-row .macd-bear  { color:var(--green) !important; }
     tr.tw-row .macd-chip.macd-bull { background:#3d1515 !important; color:var(--red) !important; }
@@ -639,10 +642,10 @@
       font-weight: 600;
       font-size: 0.8rem;
     }
-    .rsi-hot  { background: #2d1f0e; color: var(--orange); }  /* overbought → orange (neutral) */
+    .rsi-hot  { background: #3d1515; color: var(--red);    }  /* US overbought = sell = red */
     .rsi-warm { background: #1a2d1a; color: var(--green); }
-    .rsi-cold { background: #1a2535; color: #58a6ff; }  /* oversold → blue (neutral) */
-    .rsi-norm { background: var(--bg3); color: var(--muted); }
+    .rsi-cold { background: #0d2a1a; color: var(--green); }  /* US oversold = buy = green */
+    .rsi-norm { background: #2d1f0e; color: var(--orange); }  /* neutral = orange */
 
     .macd-chip {
       display: inline-block;
@@ -862,6 +865,7 @@
       --border: #d0d7de; --text: #24292f; --muted: #57606a; --dim: #8c959f;
     }
     html.theme-white .rsi-hot  { background: #ffebe9; }
+    html.theme-white .rsi-norm { background: #fff3d9; }
     html.theme-white .rsi-warm { background: #dafbe1; }
     html.theme-white .rsi-cold { background: #ddf4ff; }
     html.theme-white .rsi-norm { background: #eaeef2; }
@@ -884,6 +888,7 @@
       --border: #8abcd8; --text: #0a2742; --muted: #2d6a8a; --dim: #5a90b0;
     }
     html.theme-lightblue .rsi-hot  { background: #fdd5d1; }
+    html.theme-lightblue .rsi-norm { background: #fde8cc; }
     html.theme-lightblue .rsi-warm { background: #d0f0da; }
     html.theme-lightblue .rsi-cold { background: #cce8ff; }
     html.theme-lightblue .rsi-norm { background: #c2dff0; }
@@ -907,6 +912,7 @@
       --border: #f3eac1; --text: #1e1400; --muted: #4a3200; --dim: #8a6a10;
     }
     html.theme-lightyellow .rsi-hot  { background: #f4b8b1; }
+    html.theme-lightyellow .rsi-norm { background: #f5e4c0; }
     html.theme-lightyellow .rsi-warm { background: #b3e4bf; }
     html.theme-lightyellow .rsi-cold { background: #b3d7f4; }
     html.theme-lightyellow .rsi-norm { background: #fdf7d7; }
