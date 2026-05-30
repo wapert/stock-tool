@@ -166,7 +166,7 @@ def calculate_volume_ratio(volumes):
     return round(cur / avg, 2) if avg > 0 else None
 
 
-def calculate_kd(hist, period=9):
+def calculate_kd(hist, period=9, is_tw=True):
     """
     Taiwan-standard KD Stochastic (9-period RSV, 1/3 smoothing).
     Returns (k, d, prev_k, prev_d) — last two bars for crossover detection.
@@ -932,6 +932,33 @@ def analyze_stock(symbol: str) -> dict:
         if len(closes) >= 35:
             macd_label, macd_bullish = calculate_macd(closes)
 
+        # KD Stochastic — period 9 for TW (market standard), 14 for US
+        _kd_period = 9 if is_taiwan else 14
+        kd_k, kd_d, kd_pk, kd_pd = (None, None, None, None)
+        if len(closes) >= _kd_period + 5:
+            kd_k, kd_d, kd_pk, kd_pd = calculate_kd(hist, period=_kd_period)
+        # KD signal label
+        def _kd_signal(k, d, pk, pd):
+            if k is None: return None, None
+            cross = ""
+            if pk is not None and pd is not None:
+                if pk < pd and k >= d:
+                    cross = "金叉" if k < 50 else "高位金叉"
+                elif pk > pd and k <= d:
+                    cross = "死叉" if k > 50 else "低位死叉"
+            if k < 20:   zone = "超賣"
+            elif k < 30: zone = "低位"
+            elif k > 80: zone = "超買"
+            elif k > 70: zone = "高位"
+            else:        zone = ""
+            label = cross or zone or ""
+            # bull/bear classification
+            bull = (k < 30) or (cross in ("金叉",))
+            bear = (k > 70) or (cross in ("死叉",))
+            cls  = "kd-over" if k < 30 else "kd-hot" if k > 70 else "kd-norm"
+            return label, cls
+        kd_label, kd_cls = _kd_signal(kd_k, kd_d, kd_pk, kd_pd)
+
         # Bollinger Bands
         bb_pct, bb_bw, bb_label, bb_bw_label, bb_bullish = (
             calculate_bollinger(closes) if len(closes) >= 20
@@ -1041,6 +1068,12 @@ def analyze_stock(symbol: str) -> dict:
             "peg_fmt": f"{peg_ratio:.1f}" if peg_ratio else "N/A",
             "macd_label": macd_label or "N/A",
             "macd_bullish": macd_bullish,
+            # ── KD Stochastic ─────────────────────────────────────────────
+            "kd_k":     round(kd_k, 1) if kd_k is not None else None,
+            "kd_d":     round(kd_d, 1) if kd_d is not None else None,
+            "kd_label": kd_label or "",
+            "kd_cls":   kd_cls or "kd-norm",
+            "kd_period": _kd_period,
             "pct_from_52w_high": pct_from_52w_high,
             "pct_from_52w_high_fmt": (
                 f"{pct_from_52w_high:+.1f}%" if pct_from_52w_high is not None else "N/A"

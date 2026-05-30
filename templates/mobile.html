@@ -287,6 +287,9 @@
     .rsi-norm { color: var(--muted); }
     .macd-bull { color: var(--green); }
     .macd-bear { color: var(--red); }
+    .kd-over   { color: var(--green); font-weight:700; }
+    .kd-hot    { color: var(--red);   font-weight:700; }
+    .kd-norm   { color: var(--muted); }
     .pos { color: var(--green); }
     .neg { color: var(--red); }
     .na  { color: var(--dim); }
@@ -1093,6 +1096,7 @@ function _mGetSortVal(r, col) {
     case 'upside':   return r.upside_pct;
     case 'rsi':      return r.rsi;
     case 'macd':     return r.macd_bullish===true?1:r.macd_bullish===false?0:-1;
+    case 'kd':       return r.kd_k!=null?r.kd_k:-1;
     case '52w':      return r.pct_from_52w_high;
     case 'earnings': return r.next_earnings_ts;
     case 'pe':       return r.forward_pe;
@@ -1245,6 +1249,13 @@ function renderCards(results) {
           <div class="metric sort-metric" onclick="mSortByCol('macd')">
             <span class="metric-label">MACD${_mSortIcon('macd')}</span>
             <span class="metric-val ${r.macd_bullish?"macd-bull":"macd-bear"}">${r.macd_label||"N/A"}</span>
+          </div>
+          <div class="metric sort-metric" onclick="mSortByCol('kd')">
+            <span class="metric-label">KD(${r.kd_period||9})${_mSortIcon('kd')}</span>
+            <span class="metric-val ${r.kd_cls||'kd-norm'}" style="font-size:.75rem;">
+              ${r.kd_k!=null?`K:${r.kd_k} D:${r.kd_d}`:"N/A"}
+            </span>
+            ${r.kd_label?`<span style="font-size:.62rem;font-weight:700;color:${r.kd_cls==='kd-over'?'var(--green)':r.kd_cls==='kd-hot'?'var(--red)':'var(--yellow)'}">${r.kd_label}</span>`:""}
           </div>
           <div class="metric sort-metric" onclick="mSortByCol('52w')">
             <span class="metric-label">距52W高${_mSortIcon('52w')}</span>
