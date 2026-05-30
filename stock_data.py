@@ -938,7 +938,7 @@ def analyze_stock(symbol: str) -> dict:
         if len(closes) >= _kd_period + 5:
             kd_k, kd_d, kd_pk, kd_pd = calculate_kd(hist, period=_kd_period)
         # KD signal label
-        def _kd_signal(k, d, pk, pd):
+        def _kd_signal(k, d, pk, pd, tw=False):
             if k is None: return None, None
             cross = ""
             if pk is not None and pd is not None:
@@ -952,12 +952,15 @@ def analyze_stock(symbol: str) -> dict:
             elif k > 70: zone = "高位"
             else:        zone = ""
             label = cross or zone or ""
-            # bull/bear classification
-            bull = (k < 30) or (cross in ("金叉",))
-            bear = (k > 70) or (cross in ("死叉",))
-            cls  = "kd-over" if k < 30 else "kd-hot" if k > 70 else "kd-norm"
+            is_bull = k < 30 or cross in ("金叉",)
+            is_bear = k > 70 or cross in ("死叉",)
+            # TW: red=bull, green=bear (opposite of US)
+            if tw:
+                cls = "kd-tw-bull" if is_bull else "kd-tw-bear" if is_bear else "kd-norm"
+            else:
+                cls = "kd-over"    if is_bull else "kd-hot"     if is_bear else "kd-norm"
             return label, cls
-        kd_label, kd_cls = _kd_signal(kd_k, kd_d, kd_pk, kd_pd)
+        kd_label, kd_cls = _kd_signal(kd_k, kd_d, kd_pk, kd_pd, tw=is_taiwan)
 
         # Bollinger Bands
         bb_pct, bb_bw, bb_label, bb_bw_label, bb_bullish = (

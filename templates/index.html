@@ -433,10 +433,14 @@
                 border-radius:3px; margin-top:.1rem; white-space:nowrap; }
     .kd-over  { color:var(--green); }
     .kd-hot   { color:var(--red); }
-    .kd-norm  { color:var(--muted); }
+    .kd-norm    { color:var(--muted); }
+    .kd-tw-bull { color:var(--red);   font-weight:700; }  /* TW: bull=red */
+    .kd-tw-bear { color:var(--green); font-weight:700; }  /* TW: bear=green */
     .kd-tag-bull { background:#0d2a1a; color:var(--green); }
     .kd-tag-bear { background:#3d1515; color:var(--red); }
     .kd-tag-warn { background:#2d1f0e; color:var(--yellow); }
+    .kd-tag-bull-tw { background:#3d1515; color:var(--red); }   /* TW bull=red */
+    .kd-tag-bear-tw { background:#0d2a1a; color:var(--green); } /* TW bear=green */
 
     /* ── Sortable headers ── */
     .sort-th { cursor:pointer; user-select:none; white-space:nowrap; }
@@ -1768,10 +1772,13 @@ function kdHtml(r) {
   const k = r.kd_k, d = r.kd_d;
   const cls  = r.kd_cls || "kd-norm";
   const lbl  = r.kd_label || "";
-  const tagCls = lbl.includes("金叉") ? "kd-tag-bull"
-               : lbl.includes("死叉") ? "kd-tag-bear"
-               : lbl === "超賣"        ? "kd-tag-bull"
-               : lbl === "超買"        ? "kd-tag-bear"
+  const isTW    = r.is_taiwan;
+  const bullTag = isTW ? "kd-tag-bull-tw" : "kd-tag-bull";
+  const bearTag = isTW ? "kd-tag-bear-tw" : "kd-tag-bear";
+  const tagCls  = lbl.includes("金叉") ? bullTag
+               : lbl.includes("死叉") ? bearTag
+               : lbl === "超賣"        ? bullTag
+               : lbl === "超買"        ? bearTag
                : "kd-tag-warn";
   const period = r.kd_period === 14 ? "14" : "9";
   return `<div class="kd-chip">

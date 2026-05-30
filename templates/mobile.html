@@ -289,7 +289,9 @@
     .macd-bear { color: var(--red); }
     .kd-over   { color: var(--green); font-weight:700; }
     .kd-hot    { color: var(--red);   font-weight:700; }
-    .kd-norm   { color: var(--muted); }
+    .kd-norm    { color: var(--muted); }
+    .kd-tw-bull { color: var(--red);   font-weight:700; }
+    .kd-tw-bear { color: var(--green); font-weight:700; }
     .pos { color: var(--green); }
     .neg { color: var(--red); }
     .na  { color: var(--dim); }
@@ -1255,7 +1257,7 @@ function renderCards(results) {
             <span class="metric-val ${r.kd_cls||'kd-norm'}" style="font-size:.75rem;">
               ${r.kd_k!=null?`K:${r.kd_k} D:${r.kd_d}`:"N/A"}
             </span>
-            ${r.kd_label?`<span style="font-size:.62rem;font-weight:700;color:${r.kd_cls==='kd-over'?'var(--green)':r.kd_cls==='kd-hot'?'var(--red)':'var(--yellow)'}">${r.kd_label}</span>`:""}
+            ${r.kd_label?`<span style="font-size:.62rem;font-weight:700;color:${r.kd_cls==='kd-over'?'var(--green)':r.kd_cls==='kd-hot'?'var(--red)':r.kd_cls==='kd-tw-bull'?'var(--red)':r.kd_cls==='kd-tw-bear'?'var(--green)':'var(--yellow)'}">${r.kd_label}</span>`:""}
           </div>
           <div class="metric sort-metric" onclick="mSortByCol('52w')">
             <span class="metric-label">距52W高${_mSortIcon('52w')}</span>
