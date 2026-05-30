@@ -14,7 +14,7 @@ GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")   # set via env var on each 
 GEMINI_MODEL = "gemini-2.5-flash"
 RSS_URL     = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
 DATA_FILE   = os.path.join(os.path.dirname(__file__), "static", "ebcshow.json")
-MAX_VIDEOS  = 6
+MAX_VIDEOS  = 15  # RSS provides up to 15
 HEADERS     = {"User-Agent":
                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -290,7 +290,7 @@ def run_daily_fetch():
     # Merge with previous and keep history
     all_videos = list({v["id"]: v for v in list(existing.values())}.values())
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date",""), reverse=True)
-    all_videos = all_videos[:MAX_VIDEOS * 3]
+    all_videos = all_videos[:30]
 
     payload = {
         "updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
