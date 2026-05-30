@@ -1,5 +1,5 @@
 // Service Worker — caches the shell for offline launch screen
-const CACHE = "stock-tool-v1";
+const CACHE = "stock-tool-v2";
 const SHELL = ["/", "/static/manifest.json", "/static/icon-192.png"];
 
 self.addEventListener("install", e => {
@@ -20,8 +20,10 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  // API calls — always network, never cache
-  if (url.pathname.startsWith("/analyze") || url.pathname.startsWith("/profiles")) return;
+  // Dynamic pages & API calls — always network, never cache
+  const noCache = ["/analyze", "/profiles", "/ebcshow", "/scan", "/calendar",
+                   "/market", "/options", "/serenity", "/news", "/stock/"];
+  if (noCache.some(p => url.pathname.startsWith(p))) return;
   e.respondWith(
     fetch(e.request).catch(() => caches.match(e.request))
   );
