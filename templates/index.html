@@ -442,6 +442,30 @@
     .kd-tag-bull-tw { background:#3d1515; color:var(--red); }   /* TW bull=red */
     .kd-tag-bear-tw { background:#0d2a1a; color:var(--green); } /* TW bear=green */
 
+
+    /* ── Taiwan market color overrides (red=bull/buy, green=bear/sell) ── */
+    tr.tw-row .pos        { color:var(--red)   !important; }
+    tr.tw-row .neg        { color:var(--green) !important; }
+    tr.tw-row .price-up   { color:var(--red)   !important; }
+    tr.tw-row .price-dn   { color:var(--green) !important; }
+    tr.tw-row .macd-bull  { color:var(--red)   !important; }
+    tr.tw-row .macd-bear  { color:var(--green) !important; }
+    tr.tw-row .macd-chip.macd-bull { background:#3d1515 !important; color:var(--red) !important; }
+    tr.tw-row .macd-chip.macd-bear { background:#0d2a1a !important; color:var(--green) !important; }
+    tr.tw-row .rsi-hot    { background:#0d2a1a !important; color:var(--green) !important; }
+    tr.tw-row .rsi-cold   { background:#3d1515 !important; color:var(--red)   !important; }
+    tr.tw-row .sig-chip.sig-bull { background:#3d1515 !important; color:var(--red)   !important; }
+    tr.tw-row .sig-chip.sig-bear { background:#0d2a1a !important; color:var(--green) !important; }
+    tr.tw-row .rec-strong-buy,.tw-row .rec-buy { background:#3d1515 !important; border-color:#b22222aa !important; }
+    tr.tw-row .rec-sell,.tw-row .rec-strong-sell,.tw-row .rec-under { background:#0d2a1a !important; border-color:#23863688 !important; }
+    tr.tw-row .score-s3  { background:#3d1515 !important; color:var(--red)   !important; border-color:#b2222288 !important; }
+    tr.tw-row .score-s2  { background:#3d1515 !important; color:var(--red)   !important; }
+    tr.tw-row .score-s1  { background:#2d1515 !important; color:#ff8888     !important; }
+    tr.tw-row .score-sm1 { background:#1a2b1a !important; color:#7ee787     !important; }
+    tr.tw-row .score-sm2 { background:#0d2a1a !important; color:var(--green) !important; }
+    tr.tw-row .peg-ok    { color:var(--red)   !important; }
+    tr.tw-row .peg-high  { color:var(--green) !important; }
+
     /* ── Sortable headers ── */
     .sort-th { cursor:pointer; user-select:none; white-space:nowrap; }
     .sort-th:hover { color:var(--text); background:var(--bg3); }
@@ -1423,7 +1447,7 @@ function _doRenderRows(results) {
         <td><span class="symbol-badge">${escHtml(r.symbol || "?")}</span></td>
         <td colspan="14" style="color:var(--red);font-size:0.83rem;">${escHtml(r.error)}</td>
       </tr>`;
-    return `<tr>
+    return `<tr class="${r.is_taiwan ? 'tw-row' : ''}">
       <td>
         <span class="symbol-badge">${escHtml(r.display_symbol || r.symbol)}</span>${r.is_taiwan ? ' <span title="台灣股市">🇹🇼</span>' : ''} <button class="expand-btn" id="exp-btn-${i}" onclick="toggleDetail(${i})">▼</button><br/>
         <span style="font-size:0.7rem;color:var(--muted);">${escHtml(r.company_name)}</span>
@@ -1431,7 +1455,7 @@ function _doRenderRows(results) {
       </td>
       <td class="price">
         ${r.current_price_fmt} ${priceArrow(r.symbol, r.current_price)}<br/>
-        <span style="font-size:.75rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.day_chg_pct>=0?'#3fb950':'#f85149'};">
+        <span style="font-size:.75rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.is_taiwan?(r.day_chg_pct>=0?'#f85149':'#3fb950'):(r.day_chg_pct>=0?'#3fb950':'#f85149')};">
           ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
         </span>
       </td>

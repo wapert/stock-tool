@@ -399,6 +399,25 @@
     .m-ac-name  { font-size:.76rem; color:var(--muted); overflow:hidden;
                   text-overflow:ellipsis; white-space:nowrap; flex:1; }
 
+
+    /* ── Taiwan market color overrides (red=bull/buy, green=bear/sell) ── */
+    .tw-card .pos        { color:var(--red)   !important; }
+    .tw-card .neg        { color:var(--green) !important; }
+    .tw-card .price-up   { color:var(--red)   !important; }
+    .tw-card .price-dn   { color:var(--green) !important; }
+    .tw-card .macd-bull  { color:var(--red)   !important; }
+    .tw-card .macd-bear  { color:var(--green) !important; }
+    .tw-card .rsi-hot    { background:#0d2a1a !important; color:var(--green) !important; }
+    .tw-card .rsi-cold   { background:#3d1515 !important; color:var(--red)   !important; }
+    .tw-card .sig-chip.sig-bull { background:#3d1515 !important; color:var(--red)   !important; }
+    .tw-card .sig-chip.sig-bear { background:#0d2a1a !important; color:var(--green) !important; }
+    .tw-card .rec-badge.rec-strong-buy,.tw-card .rec-badge.rec-buy { background:#3d1515 !important; }
+    .tw-card .rec-badge.rec-sell,.tw-card .rec-badge.rec-under     { background:#0d2a1a !important; }
+    .tw-card .score-s3,.tw-card .score-s2 { background:#3d1515 !important; color:var(--red)   !important; }
+    .tw-card .score-s1  { background:#2d1515 !important; color:#ff8888     !important; }
+    .tw-card .score-sm1 { background:#1a2b1a !important; color:#7ee787     !important; }
+    .tw-card .score-sm2 { background:#0d2a1a !important; color:var(--green) !important; }
+
     /* ── Section index bar ── */
     .idx-bar {
       position: fixed; right: 3px;
@@ -1222,7 +1241,7 @@ function renderCards(results) {
     const upTxt = r.upside_pct!=null ? `(${r.upside_pct>0?"+":""}${r.upside_pct}%)` : "";
     const _ini = (r.display_symbol||r.symbol||"?")[0].toUpperCase();
     return `
-      <div class="card" id="card-${esc(r.display_symbol||r.symbol)}" data-initial="${_ini}">
+      <div class="card ${r.is_taiwan?'tw-card ':''}card-inner" id="card-${esc(r.display_symbol||r.symbol)}" data-initial="${_ini}">
         <div class="card-top">
           <span class="symbol-badge sort-sym-area" onclick="mSortByCol('symbol')">${esc(r.display_symbol||r.symbol)}${_mSortIcon('symbol')}</span>${r.is_taiwan?" 🇹🇼":""}
           <div class="card-names">
@@ -1237,7 +1256,7 @@ function renderCards(results) {
 
         <div class="card-price sort-price-area" onclick="mSortByCol('chg')">
           <span class="price-now">${r.current_price_fmt}</span>${mPriceArrow(r.symbol, r.current_price)}
-          <span style="font-size:.85rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.day_chg_pct>=0?'#3fb950':'#f85149'};">
+          <span style="font-size:.85rem;font-weight:600;color:${r.day_chg_pct==null?'#8b949e':r.is_taiwan?(r.day_chg_pct>=0?'#f85149':'#3fb950'):(r.day_chg_pct>=0?'#3fb950':'#f85149')};">
             ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})${_mSortIcon('chg')}
           </span>
           <span class="price-target ${upCls}" onclick="event.stopPropagation();mSortByCol('upside')">${r.target_price_fmt} ${upTxt}${_mSortIcon('upside')}</span>
