@@ -439,8 +439,8 @@
     .kd-tag-bull { background:#0d2a1a; color:var(--green); }
     .kd-tag-bear { background:#3d1515; color:var(--red); }
     .kd-tag-warn { background:#2d1f0e; color:var(--yellow); }
-    .kd-tag-bull-tw { background:#1a2535; color:#58a6ff; }   /* TW oversold — blue  */
-    .kd-tag-bear-tw { background:#2d1f0e; color:var(--orange); } /* TW overbought — orange */
+    .kd-tag-bull-tw { background:#3d1515; color:var(--red);   }  /* TW bull=red (買入) */
+    .kd-tag-bear-tw { background:#0d2a1a; color:var(--green); }  /* TW bear=green (賣出) */
 
 
     /* ── Taiwan market color overrides (red=bull/buy, green=bear/sell) ── */
@@ -1807,7 +1807,7 @@ function kdHtml(r) {
                : "kd-tag-warn";
   const period = r.kd_period === 14 ? "14" : "9";
   return `<div class="kd-chip">
-    <span class="${cls}">K:${k} D:${d}</span>
+    <span style="color:#58a6ff;font-weight:700;">K:${k} D:${d}</span>
     <span class="kd-vals">(${period})</span>
     ${lbl ? `<span class="kd-tag ${tagCls}">${lbl}</span>` : ""}
   </div>`;

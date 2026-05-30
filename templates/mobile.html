@@ -290,8 +290,8 @@
     .kd-over   { color: #58a6ff;      font-weight:700; }
     .kd-hot    { color: var(--orange); font-weight:700; }
     .kd-norm    { color: var(--muted); }
-    .kd-tw-bull { color: #58a6ff;      font-weight:700; }
-    .kd-tw-bear { color: var(--orange); font-weight:700; }
+    .kd-tw-bull { color: var(--red);   font-weight:700; }  /* TW bull=red */
+    .kd-tw-bear { color: var(--green); font-weight:700; }  /* TW bear=green */
     .pos { color: var(--green); }
     .neg { color: var(--red); }
     .na  { color: var(--dim); }
@@ -1271,7 +1271,7 @@ function renderCards(results) {
           </div>
           <div class="metric sort-metric" onclick="mSortByCol('kd')">
             <span class="metric-label">KD(${r.kd_period||9})${_mSortIcon('kd')}</span>
-            <span class="metric-val ${r.kd_cls||'kd-norm'}" style="font-size:.75rem;">
+            <span class="metric-val" style="font-size:.75rem;color:#58a6ff;font-weight:700;">
               ${r.kd_k!=null?`K:${r.kd_k} D:${r.kd_d}`:"N/A"}
             </span>
             ${r.kd_label?`<span style="font-size:.62rem;font-weight:700;color:${r.kd_cls==='kd-over'?'var(--green)':r.kd_cls==='kd-hot'?'var(--red)':r.kd_cls==='kd-tw-bull'?'var(--red)':r.kd_cls==='kd-tw-bear'?'var(--green)':'var(--yellow)'}">${r.kd_label}</span>`:""}
