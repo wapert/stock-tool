@@ -434,13 +434,13 @@
     .kd-over  { color:var(--green); }
     .kd-hot   { color:var(--red); }
     .kd-norm    { color:var(--muted); }
-    .kd-tw-bull { color:var(--red);   font-weight:700; }  /* TW: bull=red */
-    .kd-tw-bear { color:var(--green); font-weight:700; }  /* TW: bear=green */
+    .kd-tw-bull { color:#58a6ff; font-weight:700; }       /* TW: oversold/buy — blue (neutral) */
+    .kd-tw-bear { color:var(--orange); font-weight:700; } /* TW: overbought/sell — orange (neutral) */
     .kd-tag-bull { background:#0d2a1a; color:var(--green); }
     .kd-tag-bear { background:#3d1515; color:var(--red); }
     .kd-tag-warn { background:#2d1f0e; color:var(--yellow); }
-    .kd-tag-bull-tw { background:#3d1515; color:var(--red); }   /* TW bull=red */
-    .kd-tag-bear-tw { background:#0d2a1a; color:var(--green); } /* TW bear=green */
+    .kd-tag-bull-tw { background:#1a2535; color:#58a6ff; }   /* TW oversold — blue  */
+    .kd-tag-bear-tw { background:#2d1f0e; color:var(--orange); } /* TW overbought — orange */
 
 
     /* ── Taiwan market color overrides (red=bull/buy, green=bear/sell) ── */
@@ -452,12 +452,10 @@
     tr.tw-row .macd-bear  { color:var(--green) !important; }
     tr.tw-row .macd-chip.macd-bull { background:#3d1515 !important; color:var(--red) !important; }
     tr.tw-row .macd-chip.macd-bear { background:#0d2a1a !important; color:var(--green) !important; }
-    tr.tw-row .rsi-hot    { background:#0d2a1a !important; color:var(--green) !important; }
-    tr.tw-row .rsi-cold   { background:#3d1515 !important; color:var(--red)   !important; }
     tr.tw-row .sig-chip.sig-bull { background:#3d1515 !important; color:var(--red)   !important; }
     tr.tw-row .sig-chip.sig-bear { background:#0d2a1a !important; color:var(--green) !important; }
-    tr.tw-row .rec-strong-buy,.tw-row .rec-buy { background:#3d1515 !important; border-color:#b22222aa !important; }
-    tr.tw-row .rec-sell,.tw-row .rec-strong-sell,.tw-row .rec-under { background:#0d2a1a !important; border-color:#23863688 !important; }
+    tr.tw-row .rec-strong-buy, tr.tw-row .rec-buy { background:#3d1515 !important; color:var(--red) !important; border-color:#b22222aa !important; }
+    tr.tw-row .rec-sell, tr.tw-row .rec-strong-sell, tr.tw-row .rec-under { background:#0d2a1a !important; color:var(--green) !important; border-color:#23863688 !important; }
     tr.tw-row .score-s3  { background:#3d1515 !important; color:var(--red)   !important; border-color:#b2222288 !important; }
     tr.tw-row .score-s2  { background:#3d1515 !important; color:var(--red)   !important; }
     tr.tw-row .score-s1  { background:#2d1515 !important; color:#ff8888     !important; }
@@ -641,9 +639,9 @@
       font-weight: 600;
       font-size: 0.8rem;
     }
-    .rsi-hot  { background: #3d1515; color: var(--red); }
+    .rsi-hot  { background: #2d1f0e; color: var(--orange); }  /* overbought → orange (neutral) */
     .rsi-warm { background: #1a2d1a; color: var(--green); }
-    .rsi-cold { background: #1a1a2d; color: #79c0ff; }
+    .rsi-cold { background: #1a2535; color: #58a6ff; }  /* oversold → blue (neutral) */
     .rsi-norm { background: var(--bg3); color: var(--muted); }
 
     .macd-chip {
@@ -1459,7 +1457,7 @@ function _doRenderRows(results) {
           ${r.day_change_fmt||''} (${r.day_chg_pct_fmt||''})
         </span>
       </td>
-      <td>${upsideHtml(r.upside_pct, r.target_price_fmt)}
+      <td>${upsideHtml(r.upside_pct, r.target_price_fmt, r.is_taiwan)}
         <button class="ma-btn" onclick="openMAChart('${escHtml(r.symbol)}',${r.is_taiwan?'true':'false'},'${escHtml(r.company_name)}')">📈 MA</button>
       </td>
       <td class="col-sep pe">${r.forward_pe_fmt}</td>
@@ -1782,10 +1780,13 @@ function recClass(rec) {
   if (rec.includes("賣出"))    return "rec-sell";
   return "rec-hold";
 }
-function upsideHtml(up, tfmt) {
+function upsideHtml(up, tfmt, isTW) {
   if (tfmt === "N/A") return `<span class="na">N/A</span>`;
-  const cls = up >= 0 ? "upside-pos" : "upside-neg";
-  return `<span style="color:var(--green)">${tfmt}</span><br/><span class="${cls}">(${up >= 0 ? "+" : ""}${up}%)</span>`;
+  const priceColor = isTW ? "var(--muted)" : "var(--muted)";           // target price: neutral
+  const upColor   = up >= 0
+    ? (isTW ? "var(--red)"   : "var(--green)")
+    : (isTW ? "var(--green)" : "var(--red)");
+  return `<span style="color:${priceColor}">${tfmt}</span><br/><span style="color:${upColor};font-weight:600;">(${up >= 0 ? "+" : ""}${up}%)</span>`;
 }
 function macdHtml(label, bull) {
   if (!label || label === "N/A") return `<span class="macd-chip macd-na">N/A</span>`;
