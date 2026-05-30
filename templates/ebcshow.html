@@ -322,7 +322,7 @@ let _geminiRunning = false;
 
 async function runGemini(vidId, btn) {
   if (_geminiRunning) {
-    alert("⚠️ 目前已有一支影片正在 Gemini 分析中，請等待完成後再分析下一支。");
+    alert("⚠️ Only one video for Gemini at a time.\n請等待目前影片分析完成後再試。");
     return;
   }
   _geminiRunning = true;
