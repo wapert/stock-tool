@@ -1214,6 +1214,87 @@ def stock_institutional():
     _cache.set(cache_key, result, ttl=3600)
     return jsonify(result)
 
+@app.route("/ustv")
+def ustv_page():
+    return render_template("ustv.html")
+
+@app.route("/ustv/data")
+def ustv_data():
+    data_file = os.path.join(os.path.dirname(__file__), "static", "ustv.json")
+    if os.path.exists(data_file):
+        with open(data_file, encoding="utf-8") as f:
+            return jsonify(json.load(f))
+    try:
+        from ustv import run_daily_fetch
+        return jsonify(run_daily_fetch())
+    except Exception as e:
+        return jsonify({"error": str(e), "videos": []}), 500
+
+@app.route("/ustv/refresh", methods=["POST"])
+def ustv_refresh():
+    try:
+        from ustv import run_daily_fetch
+        result = run_daily_fetch()
+        return jsonify({"status": "ok", "count": len(result.get("videos", []))})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+_ustv_jobs = {}
+
+@app.route("/ustv/summarize", methods=["POST"])
+def ustv_summarize():
+    vid_id = request.json.get("id","") if request.is_json else ""
+    if not vid_id:
+        return jsonify({"error": "id required"}), 400
+    if _ustv_jobs.get(vid_id) == "processing":
+        return jsonify({"status": "processing"})
+    def _run():
+        marker = f"/tmp/gemini_done_ustv_{vid_id}"
+        try:
+            from ebcshow import summarize_with_gemini, DATA_FILE as EBC_FILE
+            from ustv import DATA_FILE
+            import re as _re
+            url    = f"https://www.youtube.com/watch?v={vid_id}"
+            result = summarize_with_gemini(url)
+            if not result:
+                open(f"/tmp/gemini_err_ustv_{vid_id}", "w").close()
+                return
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, encoding="utf-8") as f:
+                    data = json.load(f)
+                for v in data.get("videos", []):
+                    if v["id"] == vid_id:
+                        v["gemini"] = result
+                        tw = list(v.get("tw_stocks", []))
+                        us = list(v.get("us_stocks", []))
+                        for s in result.get("stocks", []):
+                            c = s.get("code","")
+                            if c and _re.match(r'^\d{4}$', c) and c not in tw: tw.append(c)
+                            elif c and _re.match(r'^[A-Z]{2,5}$', c) and c not in us: us.append(c)
+                        v["tw_stocks"] = sorted(set(tw))
+                        v["us_stocks"] = sorted(set(us))
+                        break
+                tmp = DATA_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, DATA_FILE)
+            open(marker, "w").close()
+        except Exception as e:
+            app.logger.error("USTV Gemini error %s: %s", vid_id, e)
+            open(f"/tmp/gemini_err_ustv_{vid_id}", "w").close()
+    _ustv_jobs[vid_id] = "processing"
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "processing"})
+
+@app.route("/ustv/status")
+def ustv_status():
+    vid_id = request.args.get("id","")
+    if os.path.exists(f"/tmp/gemini_done_ustv_{vid_id}"):
+        return jsonify({"id": vid_id, "status": "done"})
+    if os.path.exists(f"/tmp/gemini_err_ustv_{vid_id}"):
+        return jsonify({"id": vid_id, "status": "error"})
+    return jsonify({"id": vid_id, "status": "processing"})
+
 @app.route("/serenity")
 def serenity_page():
     return render_template("serenity.html")
