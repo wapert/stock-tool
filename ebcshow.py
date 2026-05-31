@@ -164,7 +164,10 @@ def scrape_video_page(vid_id):
         duration = ""
         if dur_m:
             secs = int(dur_m.group(1))
-            duration = f"{secs//3600}:{(secs%3600)//60:02d}" if secs >= 3600 else f"{secs//60}:{secs%60:02d}"
+            if secs >= 3600:
+                duration = f"{secs//3600}:{(secs%3600)//60:02d}:{secs%60:02d}"  # H:MM:SS
+            else:
+                duration = f"{secs//60}:{secs%60:02d}"  # M:SS
 
         # Description text (encoded in JSON in page source)
         desc = ""
