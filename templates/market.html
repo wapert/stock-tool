@@ -144,6 +144,22 @@
       --bg:#fffbe8; --bg2:#fef9df; --bg3:#fdf7d7;
       --border:#f3eac1; --text:#1e1400; --muted:#503800; --dim:#8d7318;
     }
+
+    /* ── Add to profile popup ── */
+    .sap { position:fixed; z-index:1000; background:var(--bg2);
+           border:1px solid var(--border); border-radius:10px;
+           box-shadow:0 8px 24px rgba(0,0,0,.5);
+           min-width:180px; font-size:.82rem; overflow:hidden; }
+    .sap-title { padding:.5rem .75rem; font-weight:700; color:var(--blue);
+                 border-bottom:1px solid var(--border); font-size:.85rem; }
+    .sap-item  { display:flex; align-items:center; justify-content:space-between;
+                 padding:.42rem .75rem; cursor:pointer; gap:.75rem; }
+    .sap-item:hover { background:var(--bg3); }
+    .sap-name  { color:var(--text); font-weight:600; }
+    .sap-status { font-size:.72rem; font-weight:700; white-space:nowrap; }
+    .sap-in  .sap-status { color:var(--green); }
+    .sap-add .sap-status { color:var(--dim); }
+    .sap-empty { padding:.5rem .75rem; color:var(--dim); font-size:.78rem; }
   </style>
 </head>
 <body>
@@ -268,7 +284,7 @@ function sectionGainers(rows, market, src) {
       <tbody>${(rows||[]).map((r,i) => `
         <tr>
           <td class="rank">${i+1}</td>
-          <td class="sym">${esc(r.symbol)}</td>
+          <td class="sym" style="cursor:pointer" onclick="clickStock(r.symbol,market==='TW',event)">${esc(r.symbol)}</td>
           <td class="name">${esc(r.name)}</td>
           <td class="price">${r.price_fmt || "N/A"}</td>
           <td>${chgHtml(r.change_pct)}</td>
@@ -290,7 +306,7 @@ function sectionVolume(rows, market, src) {
       <tbody>${(rows||[]).map((r,i) => `
         <tr>
           <td class="rank">${i+1}</td>
-          <td class="sym">${esc(r.symbol)}</td>
+          <td class="sym" style="cursor:pointer" onclick="clickStock(r.symbol,market==='TW',event)">${esc(r.symbol)}</td>
           <td class="name">${esc(r.name)}</td>
           <td class="price">${r.price_fmt || "N/A"}</td>
           <td style="color:var(--muted)">${r.volume_fmt || "N/A"}</td>
@@ -340,7 +356,7 @@ function sectionExpert(rows, market, source, src) {
       <tbody>${(rows||[]).map((r,i) => `
         <tr>
           <td class="rank">${i+1}</td>
-          <td class="sym">${esc(r.symbol)}</td>
+          <td class="sym" style="cursor:pointer" onclick="clickStock(r.symbol,market==='TW',event)">${esc(r.symbol)}</td>
           <td class="name">${esc(r.name)}</td>
           <td class="price">${r.price_fmt || "N/A"}</td>
           <td>${market === "TW"
@@ -381,6 +397,58 @@ function esc(s) {
 
 // Init
 loadMarket("US");
+
+// ── Add to profile popup ─────────────────────────────────────────────────────
+let _sapProfilesCache = null;
+async function _sapLoadProfiles() {
+  if (_sapProfilesCache) return _sapProfilesCache;
+  try { _sapProfilesCache = await fetch("/profiles").then(r=>r.json()); }
+  catch(e) { _sapProfilesCache = {}; }
+  return _sapProfilesCache;
+}
+async function clickStock(sym, isTW, event) {
+  event.stopPropagation();
+  document.querySelectorAll(".sap").forEach(el=>el.remove());
+  const profiles = await _sapLoadProfiles();
+  const names = Object.keys(profiles);
+  const popup = document.createElement("div");
+  popup.className = "sap";
+  if (!names.length) {
+    popup.innerHTML = `<div class="sap-title">${isTW?"🇹🇼":"🇺🇸"} ${sym}</div><div class="sap-empty">尚無投資組合</div>`;
+  } else {
+    const items = names.map(name => {
+      const stocks = (profiles[name].stocks||[]).map(s=>s.toUpperCase());
+      const inProf = stocks.includes(sym.toUpperCase());
+      return `<div class="sap-item ${inProf?"sap-in":"sap-add"}" data-name="${name}" data-sym="${sym}" data-tw="${isTW}" onclick="sapToggle(this)">
+        <span class="sap-name">${name}</span>
+        <span class="sap-status">${inProf?"✓ 已在組合":"＋ 加入組合"}</span>
+      </div>`;
+    }).join("");
+    popup.innerHTML = `<div class="sap-title">${isTW?"🇹🇼":"🇺🇸"} ${sym}</div>${items}`;
+  }
+  const r = event.target.getBoundingClientRect();
+  popup.style.top  = Math.min(r.bottom+6, window.innerHeight-200)+"px";
+  popup.style.left = Math.min(r.left,     window.innerWidth-200)+"px";
+  document.body.appendChild(popup);
+  setTimeout(()=>document.addEventListener("click",()=>document.querySelectorAll(".sap").forEach(el=>el.remove()),{once:true}),50);
+}
+async function sapToggle(el) {
+  const name=el.dataset.name, sym=el.dataset.sym, inProf=el.classList.contains("sap-in");
+  el.style.opacity=".5";
+  try {
+    const data = await fetch(`/profiles/${encodeURIComponent(name)}`).then(r=>r.json());
+    let stocks = [...(data.stocks||[])];
+    const idx = stocks.map(s=>s.toUpperCase()).indexOf(sym.toUpperCase());
+    if (inProf && idx>=0) stocks.splice(idx,1);
+    else if (!inProf) { stocks.push(sym); localStorage.setItem("profile_needs_sync","1"); }
+    await fetch(`/profiles/${encodeURIComponent(name)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({stocks})});
+    const nowIn=!inProf;
+    el.className="sap-item "+(nowIn?"sap-in":"sap-add");
+    el.querySelector(".sap-status").textContent=nowIn?"✓ 已在組合":"＋ 加入組合";
+    _sapProfilesCache=null;
+  } catch(e){alert("操作失敗："+e.message);}
+  el.style.opacity="1";
+}
 </script>
 </body>
 </html>
