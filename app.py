@@ -1340,6 +1340,84 @@ def ibd_status():
         return jsonify({"id": vid_id, "status": "error"})
     return jsonify({"id": vid_id, "status": "processing"})
 
+@app.route("/bloomberg")
+def bloomberg_page():
+    return render_template("bloomberg.html")
+
+@app.route("/bloomberg/data")
+def bloomberg_data():
+    data_file = os.path.join(os.path.dirname(__file__), "static", "bloomberg.json")
+    if os.path.exists(data_file):
+        with open(data_file, encoding="utf-8") as f:
+            return jsonify(json.load(f))
+    try:
+        from bloomberg import run_daily_fetch
+        return jsonify(run_daily_fetch())
+    except Exception as e:
+        return jsonify({"error": str(e), "videos": []}), 500
+
+@app.route("/bloomberg/refresh", methods=["POST"])
+def bloomberg_refresh():
+    try:
+        from bloomberg import run_daily_fetch
+        result = run_daily_fetch()
+        return jsonify({"status": "ok", "count": len(result.get("videos", []))})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/bloomberg/summarize", methods=["POST"])
+def bloomberg_summarize():
+    vid_id = request.json.get("id","") if request.is_json else ""
+    if not vid_id:
+        return jsonify({"error": "id required"}), 400
+    lock_info = _gemini_lock_info()
+    if lock_info:
+        return jsonify({"status": "locked",
+                        "message": f"另一影片正在分析中 ({lock_info['page']})"}), 429
+    if not _gemini_acquire(vid_id, "bloomberg"):
+        return jsonify({"status": "locked", "message": "分析鎖定中，請稍後再試"}), 429
+    def _run():
+        try:
+            from ebcshow import summarize_with_gemini
+            from bloomberg import DATA_FILE
+            import re as _re
+            result = summarize_with_gemini(f"https://www.youtube.com/watch?v={vid_id}")
+            if not result:
+                open(f"/tmp/gemini_err_bloomberg_{vid_id}", "w").close(); return
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, encoding="utf-8") as f:
+                    data = json.load(f)
+                for v in data.get("videos", []):
+                    if v["id"] == vid_id:
+                        v["gemini"] = result
+                        us = list(v.get("us_stocks", []))
+                        for s in result.get("stocks", []):
+                            c = s.get("code","")
+                            if c and _re.match(r'^[A-Z]{2,5}$', c) and c not in us: us.append(c)
+                        v["us_stocks"] = sorted(set(us))
+                        break
+                tmp = DATA_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, DATA_FILE)
+            open(f"/tmp/gemini_done_bloomberg_{vid_id}", "w").close()
+        except Exception as e:
+            app.logger.error("Bloomberg Gemini %s: %s", vid_id, e)
+            open(f"/tmp/gemini_err_bloomberg_{vid_id}", "w").close()
+        finally:
+            _gemini_release()
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "processing"})
+
+@app.route("/bloomberg/status")
+def bloomberg_status():
+    vid_id = request.args.get("id","")
+    if os.path.exists(f"/tmp/gemini_done_bloomberg_{vid_id}"):
+        return jsonify({"id": vid_id, "status": "done"})
+    if os.path.exists(f"/tmp/gemini_err_bloomberg_{vid_id}"):
+        return jsonify({"id": vid_id, "status": "error"})
+    return jsonify({"id": vid_id, "status": "processing"})
+
 @app.route("/ustv")
 def ustv_page():
     return render_template("ustv.html")
