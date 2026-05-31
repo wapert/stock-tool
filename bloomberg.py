@@ -141,6 +141,25 @@ def summarize_bloomberg(video_url: str):
     """Bloomberg-specific Gemini summary using English prompt."""
     if not GEMINI_KEY:
         return None
+    # Check duration — Bloomberg full shows (Surveillance etc.) are 2-3hrs,
+    # which exceed Gemini's 1M token limit. Skip if > 60 minutes.
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE) as f:
+                data = __import__('json').load(f)
+            vid_id = video_url.split("v=")[-1]
+            for v in data.get("videos", []):
+                if v["id"] == vid_id:
+                    dur = v.get("duration", "")
+                    if dur and dur.count(":") >= 2:   # H:MM:SS format = over 1 hour
+                        log.warning("Bloomberg video %s too long (%s), skipping Gemini", vid_id, dur)
+                        return {"error": "too_long",
+                                "message": f"影片過長（{dur}），超過 Gemini 分析上限（1小時）。請選擇較短的片段影片。",
+                                "stocks": [], "market": [], "key_points": [], "sentiment": "N/A"}
+                    break
+        except Exception:
+            pass
+
     try:
         from google import genai
         from google.genai import types as gtypes
@@ -178,7 +197,13 @@ Respond with valid JSON only, no markdown formatting."""
         log.info("Bloomberg Gemini OK for %s", video_url)
         return result
     except Exception as e:
-        log.warning("Bloomberg Gemini failed: %s", str(e)[:200])
+        err_str = str(e)
+        if "token" in err_str.lower() and "exceed" in err_str.lower():
+            log.warning("Bloomberg Gemini token limit: %s", err_str[:100])
+            return {"error": "too_long",
+                    "message": "影片過長，超過 Gemini 分析上限（1小時）。請選擇較短的片段影片。",
+                    "stocks": [], "market": [], "key_points": [], "sentiment": "N/A"}
+        log.warning("Bloomberg Gemini failed: %s", err_str[:200])
         return None
 
 

@@ -243,8 +243,14 @@ function renderCard(v) {
   // Gemini AI summary section
   let geminiHtml = "";
   const g = v.gemini;
-  if (g) {
-    const sentCls = g.sentiment==="樂觀"?"sent-opt":g.sentiment==="謹慎"?"sent-caut":"sent-neut";
+  if (g && g.error) {
+    // Error case (e.g. video too long)
+    geminiHtml = `<div class="ai-section">
+      <div class="ai-label">🤖 Gemini AI</div>
+      <div style="font-size:.76rem;color:var(--yellow);padding:.2rem 0;">⚠️ ${g.message || g.error}</div>
+    </div>`;
+  } else if (g) {
+    const sentCls = g.sentiment==="樂觀"?"sent-opt":g.sentiment==="謹慎"?"sent-caut":g.sentiment==="cautious"?"sent-caut":g.sentiment==="optimistic"?"sent-opt":"sent-neut";
     const stockCards = (g.stocks||[]).map(s => {
       const viewCls = s.view&&s.view.includes("多")?"view-bull":s.view&&s.view.includes("空")?"view-bear":"view-neut";
       const isTW = /^\d{4,5}$/.test(s.code||"");

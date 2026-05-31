@@ -1382,6 +1382,19 @@ def bloomberg_summarize():
             result = summarize_bloomberg(f"https://www.youtube.com/watch?v={vid_id}")
             if not result:
                 open(f"/tmp/gemini_err_bloomberg_{vid_id}", "w").close(); return
+            # Save even if error (e.g. too_long) — UI will show message
+            if result.get("error"):
+                if os.path.exists(DATA_FILE):
+                    with open(DATA_FILE, encoding="utf-8") as f:
+                        data = json.load(f)
+                    for v in data.get("videos", []):
+                        if v["id"] == vid_id:
+                            v["gemini"] = result; break
+                    tmp = DATA_FILE + ".tmp"
+                    with open(tmp, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    os.replace(tmp, DATA_FILE)
+                open(f"/tmp/gemini_done_bloomberg_{vid_id}", "w").close(); return
             if os.path.exists(DATA_FILE):
                 with open(DATA_FILE, encoding="utf-8") as f:
                     data = json.load(f)
