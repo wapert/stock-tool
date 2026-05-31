@@ -392,7 +392,8 @@ async function runGemini(vidId, btn) {
   try {
     const gs = await fetch("/gemini/status").then(r=>r.json());
     if (gs.running) {
-      const where = gs.page === "bloomberg" ? "達人秀" : gs.page === "ustv" ? "錢線百分百" : gs.page;
+      const names = {"ebcshow":"達人秀","ustv":"錢線百分百","ibd":"IBD","bloomberg":"Bloomberg市場分析"};
+      const where = names[gs.page] || gs.page;
       alert(`⚠️ Only one video for Gemini at a time.\n目前「${where}」頁面有影片正在分析，請稍後再試。`);
       return;
     }
@@ -503,6 +504,7 @@ async function _resumePending() {
         btn.disabled = false; btn.textContent = "▶ 立即分析"; btn.style.cssText = "";
       }
     };
+    _geminiRunning = true;
     _startPolling(vidId, btn, onFinish);
   }
 }
