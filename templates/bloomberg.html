@@ -203,6 +203,13 @@
 
 <div class="toolbar">
   <button class="btn-refresh" id="refreshBtn" onclick="refresh()">🔄 立即更新</button>
+  <div style="display:flex;gap:.35rem;flex-wrap:wrap;flex:1;">
+    <button class="btn-ghost" style="font-size:.76rem;padding:.28rem .65rem;border-radius:20px;" id="fAll" onclick="setFilter('')">全部</button>
+    <button class="btn-ghost" style="font-size:.76rem;padding:.28rem .65rem;border-radius:20px;" id="f1" onclick="setFilter('Stock Market')">📈 Stock Market</button>
+    <button class="btn-ghost" style="font-size:.76rem;padding:.28rem .65rem;border-radius:20px;" id="f2" onclick="setFilter('Commodities')">⚡ Commodities</button>
+    <button class="btn-ghost" style="font-size:.76rem;padding:.28rem .65rem;border-radius:20px;" id="f3" onclick="setFilter('Tech')">💻 Tech</button>
+    <button class="btn-ghost" style="font-size:.76rem;padding:.28rem .65rem;border-radius:20px;" id="f4" onclick="setFilter('Radio')">📻 Radio</button>
+  </div>
   <span class="meta" id="metaText">自動每日早上 7:00 更新</span>
 </div>
 
@@ -289,7 +296,8 @@ function renderCard(v) {
         <img src="${v.thumbnail}" alt="${v.title}" loading="lazy"
              onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'"/>
       </a>
-      ${v.pub_tw ? `<span class="thumb-date">${v.pub_tw} 🇹🇼</span>` : v.date ? `<span class="thumb-date">${v.date}</span>` : ""}
+      ${v.pub_tw ? `<span class="thumb-date">${v.pub_tw}</span>` : v.date ? `<span class="thumb-date">${v.date}</span>` : ""}
+      ${v.category ? `<span class="thumb-date" style="left:auto;right:.35rem;background:rgba(31,111,235,.8)">${v.category_icon||""} ${v.category}</span>` : ""}
       ${v.duration ? `<span class="thumb-dur">${v.duration}</span>` : ""}
     </div>
     <div class="card-body">
@@ -314,16 +322,15 @@ async function loadData() {
         `<div style="text-align:center;color:#1f6feb;padding:3rem">${data.error}</div>`;
       return;
     }
-    const videos = data.videos || [];
+    _allVideos = data.videos || [];
     document.getElementById("metaText").textContent =
-      `共 ${videos.length} 支影片 · 更新時間：${data.updated||"—"}`;
-    if (!videos.length) {
+      `共 ${_allVideos.length} 支影片 · 更新時間：${data.updated||"—"}`;
+    if (!_allVideos.length) {
       document.getElementById("content").innerHTML =
         '<div style="text-align:center;color:var(--muted);padding:3rem">尚無資料，請點擊「立即更新」</div>';
       return;
     }
-    document.getElementById("content").innerHTML =
-      `<div class="card-grid">${videos.map(renderCard).join("")}</div>`;
+    setFilter(_filterCat);   // apply current filter after reload
   } catch(e) {
     document.getElementById("content").innerHTML =
       `<div style="text-align:center;color:#1f6feb;padding:3rem">載入失敗：${e.message}</div>`;
@@ -346,6 +353,35 @@ async function refresh() {
 }
 
 let _geminiRunning = false;
+let _filterCat = "";
+let _allVideos  = [];
+
+function setFilter(cat) {
+  _filterCat = cat;
+  // Update button styles
+  ["fAll","f1","f2","f3","f4"].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.style.background = "";
+  });
+  const active = cat === "" ? "fAll" : cat.includes("Stock") ? "f1"
+    : cat.includes("Comm") ? "f2" : cat.includes("Tech") ? "f3" : "f4";
+  const ab = document.getElementById(active);
+  if (ab) ab.style.background = "var(--blue)";
+  renderFiltered();
+}
+
+function renderFiltered() {
+  const filtered = _filterCat
+    ? _allVideos.filter(v => (v.category||"").includes(_filterCat))
+    : _allVideos;
+  if (!filtered.length) {
+    document.getElementById("content").innerHTML =
+      `<div style="text-align:center;color:var(--muted);padding:3rem">本類別暫無影片</div>`;
+    return;
+  }
+  document.getElementById("content").innerHTML =
+    `<div class="card-grid">${filtered.map(renderCard).join("")}</div>`;
+}
 
 async function runGemini(vidId, btn) {
   if (_geminiRunning) {

@@ -58,11 +58,16 @@ def extract_stocks(text):
     return list(set(tw)), list(set(us))
 
 
-def fetch_rss(channel_id, max_videos=15):
-    """Fetch latest videos from YouTube RSS feed."""
+def fetch_rss(channel_or_playlist_id, max_videos=15):
+    """Fetch latest videos from YouTube RSS feed (channel or playlist)."""
     try:
         import feedparser
-        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+        # Detect playlist (PL prefix) vs channel (UC prefix)
+        if channel_or_playlist_id.startswith("PL"):
+            url = f"https://www.youtube.com/feeds/videos.xml?playlist_id={channel_or_playlist_id}"
+        else:
+            url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_or_playlist_id}"
+        channel_id = channel_or_playlist_id
         raw = _fetch_url(url)
         feed = feedparser.parse(raw)
         videos = []

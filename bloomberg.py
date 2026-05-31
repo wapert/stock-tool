@@ -11,10 +11,26 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger(__name__)
 
-CHANNEL_ID = "UCIALMKvObZNtJ6AmdCLP7Lg"   # Bloomberg Television
+CHANNEL_ID = "UCIALMKvObZNtJ6AmdCLP7Lg"   # Bloomberg Television (fallback)
 DATA_FILE  = os.path.join(os.path.dirname(__file__), "static", "bloomberg.json")
 GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = "gemini-2.5-flash"
+
+# 4 target playlists (15 videos each = up to 60 total)
+PLAYLISTS = [
+    {"id": "PLGaYlBJIOoa9DV4I6sC8R8bX4L0Jq16XZ",
+     "category": "Stock Market News & Analysis",
+     "icon": "📈"},
+    {"id": "PLGaYlBJIOoa_afta_ld-N5jFUcn3lfoEa",
+     "category": "Commodities, Oil & Energy",
+     "icon": "⚡"},
+    {"id": "PLGaYlBJIOoa_vIH-o9MQZHg86xdx496BW",
+     "category": "Global Tech & Market Brief",
+     "icon": "💻"},
+    {"id": "PLGaYlBJIOoa_UtErnnm27vEY_lk97A745",
+     "category": "Bloomberg Radio",
+     "icon": "📻"},
+]
 
 # Common words to skip for US ticker detection
 _NOT_TICKERS = {
@@ -84,8 +100,8 @@ def _extract_bloomberg_tickers(title, desc=""):
 
 
 def run_daily_fetch():
-    """Fetch Bloomberg videos with US ticker extraction."""
-    log.info("Bloomberg: fetching channel %s", CHANNEL_ID)
+    """Fetch Bloomberg videos from 4 category playlists."""
+    log.info("Bloomberg: fetching %d playlists", len(PLAYLISTS))
 
     existing = {}
     if os.path.exists(DATA_FILE):
@@ -96,10 +112,27 @@ def run_daily_fetch():
         except Exception:
             pass
 
-    rss_videos = fetch_rss(CHANNEL_ID, 15)
+    # Fetch from all 4 playlists
+    all_rss = []
+    for pl in PLAYLISTS:
+        pl_videos = fetch_rss(pl["id"], 8)   # 8 per playlist = up to 32 total
+        for v in pl_videos:
+            v["category"]      = pl["category"]
+            v["category_icon"] = pl["icon"]
+        all_rss.extend(pl_videos)
+        log.info("Bloomberg: %s → %d videos", pl["category"], len(pl_videos))
+
+    # De-duplicate by video ID (same video can appear in multiple playlists)
+    seen_ids = set()
+    rss_videos = []
+    for v in all_rss:
+        if v["id"] not in seen_ids:
+            seen_ids.add(v["id"])
+            rss_videos.append(v)
+
     cached_vids = [v for v in rss_videos if existing.get(v["id"])]
     new_vids    = [v for v in rss_videos if not existing.get(v["id"])]
-    log.info("Bloomberg: %d cached, %d new", len(cached_vids), len(new_vids))
+    log.info("Bloomberg: %d total (%d cached, %d new)", len(rss_videos), len(cached_vids), len(new_vids))
 
     def _scrape(v):
         details  = scrape_video_page(v["id"])
@@ -120,7 +153,14 @@ def run_daily_fetch():
                 except Exception as e:
                     log.warning("Bloomberg scrape failed %s: %s", vid_id, e)
 
-    results = [scraped.get(v["id"]) or existing.get(v["id"]) or v for v in rss_videos]
+    results = []
+    for v in rss_videos:
+        vid_id = v["id"]
+        entry = scraped.get(vid_id) or existing.get(vid_id) or v
+        # Always update category from the current RSS (may have changed)
+        entry["category"]      = v.get("category", "")
+        entry["category_icon"] = v.get("category_icon", "")
+        results.append(entry)
 
     all_videos = list({v["id"]: v for v in existing.values()}.values())
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date", ""), reverse=True)

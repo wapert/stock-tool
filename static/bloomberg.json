@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-31 11:33",
+  "updated": "2026-05-31 11:47",
   "videos": [
     {
       "id": "HPu-UWGZCiM",
@@ -9,6 +9,8 @@
       "pub_tw": "05/31 10:22",
       "pub_ts": 1780194128,
       "thumbnail": "https://img.youtube.com/vi/HPu-UWGZCiM/maxresdefault.jpg",
+      "category": "Bloomberg Radio",
+      "category_icon": "📻",
       "duration": "3:15:05",
       "chapters": [],
       "hashtags": [
@@ -31,145 +33,189 @@
       "gemini": null
     },
     {
-      "id": "LSVlA548bwY",
-      "title": "Bloomberg This Weekend | Hegseth Reaffirms Commitment to Pacific Allies, Kennedy Cntr Name Restored",
-      "url": "https://www.youtube.com/watch?v=LSVlA548bwY",
-      "date": "2026-05-31",
-      "pub_tw": "05/31 00:48",
-      "pub_ts": 1780159724,
-      "thumbnail": "https://img.youtube.com/vi/LSVlA548bwY/maxresdefault.jpg",
-      "duration": "2:25:26",
+      "id": "Cnn40Q9jeeE",
+      "title": "Trump Sends Mixed Signals on Iran, Dell Soars | Bloomberg Businessweek Daily 5/29/2026",
+      "url": "https://www.youtube.com/watch?v=Cnn40Q9jeeE",
+      "date": "2026-05-30",
+      "pub_tw": "05/30 05:14",
+      "pub_ts": 1780089246,
+      "thumbnail": "https://img.youtube.com/vi/Cnn40Q9jeeE/maxresdefault.jpg",
+      "category": "Bloomberg Radio",
+      "category_icon": "📻",
+      "duration": "48:55",
       "chapters": [
         {
           "time": 0,
           "title": "喜歡這部影片嗎？"
         },
         {
-          "time": 111,
-          "title": "News Now with Lisa Mateo"
+          "time": 293,
+          "title": "Trump: Will Be Meeting Now to Make Final Determination on Iran"
         },
         {
-          "time": 335,
-          "title": "Hegseth: “Rightful Alarm” on China Military Buildup"
+          "time": 390,
+          "title": "Quarter of Big Oil Tankers Trapped by Iran War Have Escaped"
         },
         {
-          "time": 619,
-          "title": "NATO Military Chief: “No Drama” With US"
+          "time": 795,
+          "title": "Dell Soars Most in 2 Years on Outlook"
         },
         {
-          "time": 871,
-          "title": "Situation Room Meeting Ends With No Update on Iran"
+          "time": 841,
+          "title": "Dell Hardware Outlook Surpasses Estimates"
         },
         {
-          "time": 1080,
-          "title": "Lisa Mateo with News Now"
+          "time": 1255,
+          "title": "Travel Plans Reflect K-Shaped Economy"
         }
       ],
       "hashtags": [],
       "desc_lines": [
-        "The news doesn’t stop when markets close. Hosts David Gura, Christina Ruffini and Lisa Mateo bring clarity, context and a bit of humor to the weekend’s biggest headlines, LIVE from New York.\\r",
+        "On this episode of Bloomberg Businessweek Daily, Tim Stenovec and Christina Ruffini discuss the latest on US-Iran negotiations with Chris Kennedy, Economic Statecraft Lead for Bloomberg Economics. They also discuss, Dell's strong earnings with Woo Jin Ho, Bloomberg Intelligence Senior Hardware and Networking Analyst. They also discuss the state of small business with Liz Wilke, JPMorgan Chase Chief Economist of Business Banking.\\r",
         "Chapters:\\r",
-        "00:00:00 - Bloomberg This Weekend Begins\\r"
-      ],
-      "tw_stocks": [],
-      "us_stocks": [],
-      "gemini": null
-    },
-    {
-      "id": "q7SMBPN5ZLs",
-      "title": "Cisco Rides AI Boom as Stock Surges Higher",
-      "url": "https://www.youtube.com/watch?v=q7SMBPN5ZLs",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 22:51",
-      "pub_ts": 1780152682,
-      "thumbnail": "https://img.youtube.com/vi/q7SMBPN5ZLs/maxresdefault.jpg",
-      "duration": "10:29",
-      "chapters": [],
-      "hashtags": [],
-      "desc_lines": [
-        "Cisco Systems Inc. jumped by the most in more than 14 years after the company delivered a better-than-anticipated sales forecast and announced plans to cut thousands of jobs, an attempt to focus on the fast-growing AI market. Cisco President and Chief Product Officer Jeetu Patel joined Lisa Mateo and David Gura on Bloomberg This Weekend to discuss.\\r",
-        "--------\\r",
-        "More on Bloomberg Television and Markets\\r"
+        "00:00:00 - Bloomberg Businessweek Daily\\r"
       ],
       "tw_stocks": [],
       "us_stocks": [
-        "CSCO"
+        "INTC",
+        "JPM"
       ],
       "gemini": null
     },
     {
-      "id": "XJ8FnWk6qr0",
-      "title": "At Scrabble’s Biggest Tournament, Thailand Punches Above Its Weight",
-      "url": "https://www.youtube.com/watch?v=XJ8FnWk6qr0",
+      "id": "aznLsJzA-Yk",
+      "title": "Trump Says He Will make 'Final Determination' on Iran | Balance of Power: Early Edition 5/29/2026",
+      "url": "https://www.youtube.com/watch?v=aznLsJzA-Yk",
       "date": "2026-05-30",
-      "pub_tw": "05/30 22:14",
-      "pub_ts": 1780150481,
-      "thumbnail": "https://img.youtube.com/vi/XJ8FnWk6qr0/maxresdefault.jpg",
-      "duration": "1:59",
-      "chapters": [],
+      "pub_tw": "05/30 04:55",
+      "pub_ts": 1780088108,
+      "thumbnail": "https://img.youtube.com/vi/aznLsJzA-Yk/maxresdefault.jpg",
+      "category": "Bloomberg Radio",
+      "category_icon": "📻",
+      "duration": "51:22",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 148,
+          "title": "Stocks Hit Records High After US-Iran Deal Reports"
+        },
+        {
+          "time": 264,
+          "title": "Trump Says 'Final Determination' on Iran Is Coming"
+        },
+        {
+          "time": 472,
+          "title": "Oil Slides as Trades Bet on US-Iran Truce Renewal"
+        },
+        {
+          "time": 717,
+          "title": "Congress to Take Up War Powers Resolution Again After Recess"
+        },
+        {
+          "time": 875,
+          "title": "Bank of England's Bailey on Bloomberg"
+        }
+      ],
       "hashtags": [],
       "desc_lines": [
-        "Known locally as Crossword, Scrabble took off in Thailand in the 1980s after schools embraced it as a teaching aid and pathway to advancement. Much like athletic scholarships in the US, strong players can secure financial assistance and preferential admission to top universities, creating a pipeline of talent for Thailand’s competitive Scrabble circuit and helping produce a string of world champions.\\r",
-        "--------\\r",
-        "More on Bloomberg Television and Markets\\r"
+        "On the early edition of Balance of Power,  Bloomberg Washington Correspondents Joe Mathieu and Kailey Leinz discuss President Trump's signal that he will make decision whether to extend the fragile ceasefire with Iran for another 60 days. On today's show, former US Congresswoman from California Jane Harman, Harvard Kennedy School Ash Center Visiting Democracy Fellow Jeanne Sheehan Zaino, President and CEO of Republican Main Street Partnership Sarah Chamberlain, and Hermeus president Zach Shore. In addition, Governor of the Bank of England Andrew Bailey in conversation with Bloomberg's Stephanie Flanders from the Reykjavík Economic Conference.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Balance of Power: Early Edition\\r"
       ],
       "tw_stocks": [],
       "us_stocks": [],
       "gemini": null
     },
     {
-      "id": "bA2rUkm7J9k",
-      "title": "The AI Boom Is Coming to Your Backyard",
-      "url": "https://www.youtube.com/watch?v=bA2rUkm7J9k",
+      "id": "FVv_ImNzfZ0",
+      "title": "Who's Worth More - Anthropic or OpenAI?",
+      "url": "https://www.youtube.com/watch?v=FVv_ImNzfZ0",
       "date": "2026-05-30",
-      "pub_tw": "05/30 22:00",
-      "pub_ts": 1780149604,
-      "thumbnail": "https://img.youtube.com/vi/bA2rUkm7J9k/maxresdefault.jpg",
-      "duration": "11:37",
+      "pub_tw": "05/30 02:38",
+      "pub_ts": 1780079891,
+      "thumbnail": "https://img.youtube.com/vi/FVv_ImNzfZ0/maxresdefault.jpg",
+      "category": "Bloomberg Radio",
+      "category_icon": "📻",
+      "duration": "5:06",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "The rush to build AI data centers is drawing trillions of dollars in investment and long-term bets from infrastructure firms such as DigitalBridge. But in communities where those facilities are being built, residents and officials are raising concerns about electricity costs, water use, noise, transparency and who bears the risk if demand falls short. Michigan Attorney General Dana Nessel is challenging approval of a major data center project near Ann Arbor, arguing that ratepayers deserve more transparency about contracts and potential costs. DigitalBridge CEO Marc Ganzi says the industry can navigate the backlash, but only by working with local communities and showing how the benefits outweigh the burdens.\\r",
-        "--------\\r",
-        "More on Bloomberg Television and Markets\\r"
+        "Anthropic PBC raised $65 billion in a funding round that valued the artificial intelligence company at $965 billion including the new investment, eclipsing rival OpenAI’s value for the first time.",
+        "The funding, announced Thursday, was led by Altimeter Capital, Dragoneer, Greenoaks and Sequoia Capital. Each of the lead investors put in more than $2 billion, according to people familiar with the matter. Sequoia declined to comment. The other three firms did not respond to a request for comment.",
+        "For more, we speak with Mandeep Singh, Global Head of Tech Research for Bloomberg Intelligence.\\r"
       ],
       "tw_stocks": [],
-      "us_stocks": [],
+      "us_stocks": [
+        "INTC"
+      ],
       "gemini": null
     },
     {
-      "id": "q3Mz5cDYubM",
-      "title": "Texas Republican Primary Upends Senate Race",
-      "url": "https://www.youtube.com/watch?v=q3Mz5cDYubM",
+      "id": "yDEBnnQ36W0",
+      "title": "What's Driving Markets This Morning? Dell is surging, Gap is falling",
+      "url": "https://www.youtube.com/watch?v=yDEBnnQ36W0",
       "date": "2026-05-30",
-      "pub_tw": "05/30 21:58",
-      "pub_ts": 1780149485,
-      "thumbnail": "https://img.youtube.com/vi/q3Mz5cDYubM/maxresdefault.jpg",
-      "duration": "6:37",
+      "pub_tw": "05/30 00:34",
+      "pub_ts": 1780072494,
+      "thumbnail": "https://img.youtube.com/vi/yDEBnnQ36W0/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "4:19",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "Attorney General Ken Paxton benefited from a late endorsement from President Donald Trump and enthusiasm from Republicans’ MAGA voters to a historic blowout victory in the Senate primary runoff over incumbent John Cornyn. Bloomberg News Texas Bureau Chief Julie Fine and The New York Times Texas Bureau Chief David Goodman joined Christina Ruffini and David Gura on Bloomberg This Weekend to discuss how hard will the Republican establishment rally behind him after backing Cornyn in a bitter campaign that burned through more than $100 million?",
-        "Many GOP leaders had argued that Paxton would be a weaker nominee because of his past legal and personal woes. But Senator Ted Cruz and Governor Greg Abbott quickly came out with statements supporting him. His opponent in November will be James Talarico, who’s been building his war chest since winning the Democratic primary outright in March.\\r",
+        "On this episode of Stock Movers with Alexis Christoforous:",
+        "- Dell (DELL) shares are soaring after the company gave an outlook for annual sales that far surpassed analysts’ estimates, fueled by demand for servers that power artificial intelligence work.",
+        "- Gap (GAP) shares plunged after the company lowered its sales outlook due to struggles with its product mix."
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "INTC"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "_vEjK9htKkI",
+      "title": "Stocks Rise as Trump Says He’ll Make Call on Iran",
+      "url": "https://www.youtube.com/watch?v=_vEjK9htKkI",
+      "date": "2026-05-30",
+      "pub_tw": "05/30 00:34",
+      "pub_ts": 1780072481,
+      "thumbnail": "https://img.youtube.com/vi/_vEjK9htKkI/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "8:14",
+      "chapters": [],
+      "hashtags": [],
+      "desc_lines": [
+        "Hopes that a ceasefire deal could pave the way for an end to the Iran conflict drove stocks toward a historic streak of weekly gains, with the market also buoyed by the artificial-intelligence trade.",
+        "Brian Belski, CEO and CIO at Humilis Investment Strategies, discusses the S\\u0026P 500 bull case and his outlook for markets amid the AI boom.\\r",
         "--------\\r"
       ],
       "tw_stocks": [],
-      "us_stocks": [],
+      "us_stocks": [
+        "INTC"
+      ],
       "gemini": null
     },
     {
-      "id": "6L4McJR8tJk",
-      "title": "The Ebola Outbreak Raises Global Health Concerns",
-      "url": "https://www.youtube.com/watch?v=6L4McJR8tJk",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 21:50",
-      "pub_ts": 1780149024,
-      "thumbnail": "https://img.youtube.com/vi/6L4McJR8tJk/maxresdefault.jpg",
-      "duration": "11:10",
+      "id": "67hUjSrHrAU",
+      "title": "Gap CEO Remains Bullish Despite Lowering Sales Outlook",
+      "url": "https://www.youtube.com/watch?v=67hUjSrHrAU",
+      "date": "2026-05-29",
+      "pub_tw": "05/29 23:07",
+      "pub_ts": 1780067262,
+      "thumbnail": "https://img.youtube.com/vi/67hUjSrHrAU/maxresdefault.jpg",
+      "category": "Commodities, Oil & Energy",
+      "category_icon": "⚡",
+      "duration": "6:39",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "Travel restrictions and border closures are hindering the response to Ebola as aid workers say they are battling to get to some of the areas where the outbreak has been the most vicious. Former Center of Disease Control and Prevention Director Dr. Tom Frieden joined Christina Ruffini and David Gura on Bloomberg This Weekend to discuss.\\r",
+        "Gap Inc. CEO Richard Dickson says the retailer delivered progress in the quarter, even after lowering its sales outlook. He says three out of their four brands are growing and they're raising the earnings outlook. Dickson speaks to Bloomberg's Lisa Abramowicz.\\r",
         "--------\\r",
         "More on Bloomberg Television and Markets\\r"
       ],
@@ -178,18 +224,20 @@
       "gemini": null
     },
     {
-      "id": "mHvSUHUQQw4",
-      "title": "Secretary Hegseth Reaffirms US Commitment to Pacific Allies",
-      "url": "https://www.youtube.com/watch?v=mHvSUHUQQw4",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 21:40",
-      "pub_ts": 1780148415,
-      "thumbnail": "https://img.youtube.com/vi/mHvSUHUQQw4/maxresdefault.jpg",
-      "duration": "3:44",
+      "id": "Ky_QOXShY6Q",
+      "title": "Rocket Belonging to Jeff Bezos Explodes on Launchpad in Florida",
+      "url": "https://www.youtube.com/watch?v=Ky_QOXShY6Q",
+      "date": "2026-05-29",
+      "pub_tw": "05/29 20:58",
+      "pub_ts": 1780059500,
+      "thumbnail": "https://img.youtube.com/vi/Ky_QOXShY6Q/maxresdefault.jpg",
+      "category": "Commodities, Oil & Energy",
+      "category_icon": "⚡",
+      "duration": "1:01",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "US Defense Secretary Pete Hegseth praised defense allies in Asia and hailed newly stable ties with China, while taking swipes at longstanding security partners in Europe. Bloomberg News Global Defense Editor Gerry Doyle joined Christina Ruffini and David Gura on Bloomberg This Weekend to discuss the comments Hegseth made Saturday at an Asia security forum in Singapore, which are the latest sign of the Trump administration shifting attention toward the Indo-Pacific while expressing antagonism toward Europe and the NATO alliance.\\r",
+        "Blue Origin's New Glenn rocket exploded while undergoing a test on a launchpad in Florida on Thursday evening. The explosion is the latest blow to its reputation as a reliable alternative to SpaceX’s Falcon 9. (Source: @JConcilus via Associated Press)\\r",
         "--------\\r",
         "More on Bloomberg Television and Markets\\r"
       ],
@@ -198,38 +246,266 @@
       "gemini": null
     },
     {
-      "id": "xqO3wKYCLhY",
-      "title": "Trump's Deregulation Plan Falls Flat Analysis Finds",
-      "url": "https://www.youtube.com/watch?v=xqO3wKYCLhY",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 21:25",
-      "pub_ts": 1780147538,
-      "thumbnail": "https://img.youtube.com/vi/xqO3wKYCLhY/maxresdefault.jpg",
-      "duration": "6:25",
-      "chapters": [],
+      "id": "775D-8uKrfI",
+      "title": "Stocks Hold at Record Highs on US-Iran Deal Optimism | Bloomberg Brief 5/29/2026",
+      "url": "https://www.youtube.com/watch?v=775D-8uKrfI",
+      "date": "2026-05-29",
+      "pub_tw": "05/29 19:18",
+      "pub_ts": 1780053488,
+      "thumbnail": "https://img.youtube.com/vi/775D-8uKrfI/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:26",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 53,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 294,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 831,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 917,
+          "title": "Front Page News"
+        },
+        {
+          "time": 1012,
+          "title": "Wall Street Week: How Poland Became Europe’s Growth Standout"
+        }
+      ],
       "hashtags": [],
       "desc_lines": [
-        "A White House plan to rapidly repeal regulations has flopped, with just a handful of rules dumped via the expanded use of an administrative shortcut since a widespread review effort was ordered more than a year ago. Bloomberg Law Principal Legal Reporter Robert Iafolla joined David Gura and Christina Ruffini on Bloomberg This weekend to discuss.\\r",
-        "--------\\r",
-        "More on Bloomberg Television and Markets\\r"
+        "Stocks hold steady at all-time highs as traders wait to see whether the US and Iran can finalize a peace deal. SpaceX is said to cut its IPO valuation to at least $1.8 trillion while Anthropic's newest funding round puts its valuation at $965 billion eclipsing rival OpenAI. Cole Smead of Smead Capital Management discusses the 'mania' in tech stocks.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
       ],
       "tw_stocks": [],
       "us_stocks": [],
       "gemini": null
     },
     {
-      "id": "YFfX1PRXOJ8",
-      "title": "Legacy Tech Company Stocks Surge on AI Pivot",
-      "url": "https://www.youtube.com/watch?v=YFfX1PRXOJ8",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 21:23",
-      "pub_ts": 1780147432,
-      "thumbnail": "https://img.youtube.com/vi/YFfX1PRXOJ8/maxresdefault.jpg",
-      "duration": "7:13",
+      "id": "6xgnmtupuZk",
+      "title": "Bessent Briefs Press, Outlines Trump’s Conditions for Iran | Bloomberg Businessweek Daily 5/28/2026",
+      "url": "https://www.youtube.com/watch?v=6xgnmtupuZk",
+      "date": "2026-05-29",
+      "pub_tw": "05/29 05:13",
+      "pub_ts": 1780002834,
+      "thumbnail": "https://img.youtube.com/vi/6xgnmtupuZk/maxresdefault.jpg",
+      "category": "Bloomberg Radio",
+      "category_icon": "📻",
+      "duration": "57:21",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 140,
+          "title": "Bessent Warns Oman US to Target Anyone Involved in Strait Tolls"
+        },
+        {
+          "time": 319,
+          "title": "US, Iran Agree on Further Truce Pending Sing Off, Sources Say"
+        },
+        {
+          "time": 529,
+          "title": "Treasuries Rise After Reported US-Iran Deal to Extend Truce"
+        },
+        {
+          "time": 633,
+          "title": "US Secretary of the Treasury Scott Bessent Speaks at Press Briefing"
+        },
+        {
+          "time": 733,
+          "title": "Bessent: Trump Accounts Will Launch on July 4"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "On this episode of Bloomberg Businessweek Daily, Alexis Christoforous and Matt Miller speak with Jordan Fabian on the latest from Washington DC ahead of Treasury Secretary Scott Bessent's press briefing. They also spoke with Bloomberg News US Treasury Reporter, Dan Flatley on the latest developments from the briefing.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Businessweek Daily\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "Zo808S8wZhg",
+      "title": "US, Iran Truce Hopes Lift Stocks | Open Interest 5/28/2026",
+      "url": "https://www.youtube.com/watch?v=Zo808S8wZhg",
+      "date": "2026-05-29",
+      "pub_tw": "05/29 01:01",
+      "pub_ts": 1779987714,
+      "thumbnail": "https://img.youtube.com/vi/Zo808S8wZhg/maxresdefault.jpg",
+      "category": "Commodities, Oil & Energy",
+      "category_icon": "⚡",
+      "duration": "1:40:14",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 125,
+          "title": "Snowflake Jumps on Sales Outlook, Amazon Deal"
+        },
+        {
+          "time": 252,
+          "title": "Retail Earnings Point to Consumer Resilience"
+        },
+        {
+          "time": 376,
+          "title": "Inflation Pressures Remain High"
+        },
+        {
+          "time": 525,
+          "title": "Saira Malik, Nuveen | Stocks and Bonds Pare Losses After Inflation Data"
+        },
+        {
+          "time": 834,
+          "title": "High Interest | US, Iran Trade Truce , Tilman, Ferrari"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "Get a jump start on the US trading day with Matt Miller and Dani Burger on \"Bloomberg Open Interest.\" Stocks climb on reports the US and Iran may extend their truce, pending President Trump’s backing. Software splits as Salesforce disappoints, while Snowflake surges on AI demand. Plus, Goldman’s Ben Snider joins Bloomberg Open Interest on his higher S\\u0026P target, Sridhar Ramaswamy, the CEO of Snowflake gives his outlook, Miriam Wheeler calls AI a \"generational opportunity” and Kayak’ CEO Peer Bueller weighs in on the travel rally after news of the potential ceasefire.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Open Interest\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "CRM",
+        "GS",
+        "SNOW"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "wsoffld61yI",
+      "title": "US Strikes Iran Targets; Snowflake Jumps on Results | Bloomberg Brief 5/28/2026",
+      "url": "https://www.youtube.com/watch?v=wsoffld61yI",
+      "date": "2026-05-28",
+      "pub_tw": "05/28 19:42",
+      "pub_ts": 1779968530,
+      "thumbnail": "https://img.youtube.com/vi/wsoffld61yI/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:30",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 55,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 202,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 769,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 846,
+          "title": "Mistral AI CEO Arthur Mensch"
+        },
+        {
+          "time": 1389,
+          "title": "First Look Movers"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "US equity futures fall and oil climbs after the US struck Iranian military targets for the second time this week. Snowflake surges after a stronger-than-expected annual outlook and signing a $6 billion deal with Amazon. Salesforce issues a tepid outlook. Michael Sneyd of BNP Paribas discusses Kevin Warsh's challenges as Fed Chair ahead of US PCE numbers.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "AMZN",
+        "CRM",
+        "SNOW"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "wgfWI5aey5c",
+      "title": "Micron Joins Trillion-Dollar Club | Open Interest 5/27/2026",
+      "url": "https://www.youtube.com/watch?v=wgfWI5aey5c",
+      "date": "2026-05-28",
+      "pub_tw": "05/28 01:18",
+      "pub_ts": 1779902299,
+      "thumbnail": "https://img.youtube.com/vi/wgfWI5aey5c/maxresdefault.jpg",
+      "category": "Commodities, Oil & Energy",
+      "category_icon": "⚡",
+      "duration": "1:29:16",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 153,
+          "title": "AI Boom Fuels Memory Chip Stocks"
+        },
+        {
+          "time": 315,
+          "title": "Goldman Raises S\\u0026P 500 Year-End Target to 8,000"
+        },
+        {
+          "time": 451,
+          "title": "Iranian Tv Says it Obtained Unofficial US-Iran Mou Draft"
+        },
+        {
+          "time": 828,
+          "title": "High Interest | Robinhood, Swiss Investor, Dick's Sporting Goods"
+        },
+        {
+          "time": 908,
+          "title": "Dick’s Sporting Goods Cuts Profit Forecast"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "Get a jump start on the US trading day with Matt Miller and Dani Burger on \"Bloomberg Open Interest.\" AI powers markets to fresh highs, with Goldman calling for even more gains. Micron joins the trillion-dollar club as the chip frenzy accelerates. Nasdaq President Nelson Griggs joins Open Interest on the battle for blockbuster listings and the SpaceX IPO. Plus, Northern Trust’ Asset Management President Michael Hunstad explains why he’s staying risk-on in the AI boom.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Open Interest\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "GS",
+        "SQ"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "k_hayHAn9Q4",
+      "title": "Micron Blows Past $1 Trillion on AI Demand",
+      "url": "https://www.youtube.com/watch?v=k_hayHAn9Q4",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 23:34",
+      "pub_ts": 1779896078,
+      "thumbnail": "https://img.youtube.com/vi/k_hayHAn9Q4/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "4:07",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "Bloomberg Intelligence Global Head of Technology Research Mandeep Singh joined Christina Ruffini and David Gura on Bloomberg This Weekend to discuss so-called \"legacy\" tech companies like Dell, Intel and Nokia seeing their stocks surge as they turn to AI.\\r",
+        "Micron has experienced a significant market surge, surpassing a $1 trillion valuation driven by robust demand in the artificial intelligence sector. Despite this, the company remains undervalued, trading at under 10 times forward earnings. Bloomberg Intelligence's Jake Silverman has more on \"Bloomberg Open Interest.\"\\r",
         "--------\\r",
         "More on Bloomberg Television and Markets\\r"
       ],
@@ -240,110 +516,456 @@
       "gemini": null
     },
     {
-      "id": "pGk-PjjFUxA",
-      "title": "Hegseth Praises Asian Allies and Takes Swipe at NATO",
-      "url": "https://www.youtube.com/watch?v=pGk-PjjFUxA",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 20:25",
-      "pub_ts": 1780143917,
-      "thumbnail": "https://img.youtube.com/vi/pGk-PjjFUxA/maxresdefault.jpg",
-      "duration": "8:31",
+      "id": "QYOpf9NImm8",
+      "title": "Ed Yardeni Says Dip-Buying Opportunities in This Market Are Wishful Thinking",
+      "url": "https://www.youtube.com/watch?v=QYOpf9NImm8",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 21:50",
+      "pub_ts": 1779889824,
+      "thumbnail": "https://img.youtube.com/vi/QYOpf9NImm8/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "2:14",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "US Defense Secretary Pete Hegseth praised defense allies in Asia and hailed newly stable ties with China, while taking swipes at longstanding security partners in Europe. Bloomberg's Singapore Editor-At-Large Haslinda Amin joined Christina Ruffini and David Gura on Bloomberg This Weekend to discuss the comments Hegseth made Saturday at an Asia security forum in Singapore, which are the latest sign of the Trump administration shifting attention toward the Indo-Pacific while expressing antagonism toward Europe and the NATO alliance.\\r",
+        "Edward Yardeni, president at Yardeni Research, says the basic thrust of the market is higher as he touts “FEMO” or the “fabulous earnings momentum” he sees driving a melt up in stocks.\\r",
+        "--------\\r",
+        "More on Bloomberg Television and Markets\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "TAz7eRFcHSc",
+      "title": "Goldman Strategists Cite Earnings in Hiking S&P 500 Target to 8,000",
+      "url": "https://www.youtube.com/watch?v=TAz7eRFcHSc",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 21:50",
+      "pub_ts": 1779889803,
+      "thumbnail": "https://img.youtube.com/vi/TAz7eRFcHSc/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "2:02",
+      "chapters": [],
+      "hashtags": [],
+      "desc_lines": [
+        "Strategists at Goldman Sachs increased their year-end target for the US benchmark to 8,000 points, ditching a previous forecast of 7,600. They see earnings growth powered by the AI boom driving further gains in stocks. Michael Msika reports on Bloomberg Television.\\r",
         "--------\\r",
         "More on Bloomberg Television and Markets\\r"
       ],
       "tw_stocks": [],
       "us_stocks": [
-        "NATO"
+        "GS"
       ],
       "gemini": null
     },
     {
-      "id": "-H3yKFG7qTw",
-      "title": "What trick helped save Barnes & Noble bookstores?",
-      "url": "https://www.youtube.com/watch?v=-H3yKFG7qTw",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 17:00",
-      "pub_ts": 1780131614,
-      "thumbnail": "https://img.youtube.com/vi/-H3yKFG7qTw/maxresdefault.jpg",
-      "duration": "1:43",
-      "chapters": [],
-      "hashtags": [
-        "books",
-        "booktok",
-        "booktube",
-        "business"
-      ],
-      "desc_lines": [
-        "----------",
-        "Like this video? Subscribe https://www.youtube.com/@Bloomberg-News",
-        "Bloomberg News is the first word in business news. Visit bloomberg.com for the latest on global business, markets and more."
-      ],
-      "tw_stocks": [],
-      "us_stocks": [],
-      "gemini": null
-    },
-    {
-      "id": "H6bBYkL3Yd0",
-      "title": "What It Takes to Run One of London’s Most Popular Pubs",
-      "url": "https://www.youtube.com/watch?v=H6bBYkL3Yd0",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 14:30",
-      "pub_ts": 1780122610,
-      "thumbnail": "https://img.youtube.com/vi/H6bBYkL3Yd0/maxresdefault.jpg",
-      "duration": "1:37",
+      "id": "sJNUBkt5B6M",
+      "title": "Hormuz Would Reopen One Month After Deal, Iran TV Says",
+      "url": "https://www.youtube.com/watch?v=sJNUBkt5B6M",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 21:44",
+      "pub_ts": 1779889483,
+      "thumbnail": "https://img.youtube.com/vi/sJNUBkt5B6M/maxresdefault.jpg",
+      "category": "Commodities, Oil & Energy",
+      "category_icon": "⚡",
+      "duration": "1:53",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "On this episode of the Odd Lots podcast, Ashley Palmer-Watts, co-founder of famed London pub, The Devonshire, joins Tracy Alloway and Joe Weisenthal to discuss why even as inflation continues to rise, higher ingredient costs (whether it's beef or scallops) don't always correlate to higher menu prices and whether TV shows like The Bear are a realistic take on the restaurant business.\\r",
+        "An unofficial draft of a peace deal says the Strait of Hormuz would return to normal within a month, according to Iranian state television. It also says the the US naval blockade would end. Oil prices fell on the news. It's unclear what the US has agreed to. Bloomberg's Tyler Kendall reports.\\r",
         "--------\\r",
         "More on Bloomberg Television and Markets\\r"
-      ],
-      "tw_stocks": [],
-      "us_stocks": [],
-      "gemini": null
-    },
-    {
-      "id": "2jw3QX4Y0HU",
-      "title": "NASA Expects Permanent Moon Base as Soon as Early 2030s",
-      "url": "https://www.youtube.com/watch?v=2jw3QX4Y0HU",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 13:00",
-      "pub_ts": 1780117221,
-      "thumbnail": "https://img.youtube.com/vi/2jw3QX4Y0HU/maxresdefault.jpg",
-      "duration": "0:40",
-      "chapters": [],
-      "hashtags": [],
-      "desc_lines": [
-        "NASA's chief talks about how they're going back to the moon."
       ],
       "tw_stocks": [],
       "us_stocks": [
-        "NASA"
+        "SQ",
+        "TV"
       ],
       "gemini": null
     },
     {
-      "id": "XB3ciz4_lrE",
-      "title": "25 African Startups to Watch; Fintech Unicorn Moniepoint in Focus | Bloomberg Next Africa",
-      "url": "https://www.youtube.com/watch?v=XB3ciz4_lrE",
-      "date": "2026-05-30",
-      "pub_tw": "05/30 13:00",
-      "pub_ts": 1780117220,
-      "thumbnail": "https://img.youtube.com/vi/XB3ciz4_lrE/maxresdefault.jpg",
-      "duration": "24:00",
+      "id": "nFbCAEeguMs",
+      "title": "Memory Chip Frenzy Sends SK Hynix Into $1 Trillion Club",
+      "url": "https://www.youtube.com/watch?v=nFbCAEeguMs",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 21:37",
+      "pub_ts": 1779889032,
+      "thumbnail": "https://img.youtube.com/vi/nFbCAEeguMs/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "1:47",
       "chapters": [],
       "hashtags": [],
       "desc_lines": [
-        "On this edition of Next Africa, we bring you Bloomberg's 2026 African startups to watch list. From Egypt to Mauritius, these companies are racing to solve some of the continent's toughest challenges. Plus, we hear from Moniepoint co-founder and CTO, Felix Ike, on building one of Africa's leading fintech platforms. We also speak with venture capital investors on opportunities and challenges of investing in the continent.\\r",
+        "The breakneck surge in memory-chip stocks is intensifying, sending the market capitalizations of SK Hynix and Micron Technology above $1 trillion for the first time, as investors bet the AI boom will lead to a sustained revaluation of the industry. Bloomberg's David Savage breaks down the trends.\\r",
+        "--------\\r",
+        "More on Bloomberg Television and Markets\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "SK"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "nqiTrvNAi90",
+      "title": "Stocks Extend Highs; Paxton Defeats Cornyn in Texas Senate Runoff | Bloomberg Brief 5/27/2026",
+      "url": "https://www.youtube.com/watch?v=nqiTrvNAi90",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 19:42",
+      "pub_ts": 1779882164,
+      "thumbnail": "https://img.youtube.com/vi/nqiTrvNAi90/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:23",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 51,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 229,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 899,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 1210,
+          "title": "Front Page News"
+        },
+        {
+          "time": 1388,
+          "title": "First Look Movers"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "AI optimism drives US stocks to another record high.  Market capitalization of SK Hynix and Micron hit $1 trillion. Texas Attorney General Ken Paxton defeated incumbent John Cornyn winning the state's GOP Senate runoff after securing an endorsement from President Trump.  Ella Gude of BNY Investments Newton discusses inflation risks.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "-6c5VVbP5ls",
+      "title": "Taiwan Suspects Nvidia AI Chip Shipment Smuggled to China",
+      "url": "https://www.youtube.com/watch?v=-6c5VVbP5ls",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 18:23",
+      "pub_ts": 1779877418,
+      "thumbnail": "https://img.youtube.com/vi/-6c5VVbP5ls/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "1:04",
+      "chapters": [],
+      "hashtags": [],
+      "desc_lines": [
+        "Taiwan prosecutors suspect three individuals successfully smuggled at least one shipment of Nvidia AI chips to China after first exporting them to Japan, people familiar with the matter said. The trio was detained for allegedly falsifying documents related to exports of Super Micro Computer servers containing advanced Nvidia chips, which the US has barred from sale to China without a license. Bloomberg Intelligence's Matthew Bloxham breaks down the situation.\\r",
+        "--------\\r",
+        "More on Bloomberg Television and Markets\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "INTC",
+        "NVDA"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "biYPxKdGVco",
+      "title": "SpaceX IPO Sends Space Stocks Soaring | Open Interest 5/26/2026",
+      "url": "https://www.youtube.com/watch?v=biYPxKdGVco",
+      "date": "2026-05-27",
+      "pub_tw": "05/27 01:31",
+      "pub_ts": 1779816692,
+      "thumbnail": "https://img.youtube.com/vi/biYPxKdGVco/maxresdefault.jpg",
+      "category": "Commodities, Oil & Energy",
+      "category_icon": "⚡",
+      "duration": "1:27:13",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 163,
+          "title": "US Strikes Iran Targets as Trump Signal Progress"
+        },
+        {
+          "time": 388,
+          "title": "Lily reports Positive Early Verve LDL-C Data"
+        },
+        {
+          "time": 528,
+          "title": "Ferrari Falls As First Full EV Fails to Impress"
+        },
+        {
+          "time": 768,
+          "title": "High Interest | BP Fires Chair, Micron, UBS"
+        },
+        {
+          "time": 879,
+          "title": "UBS Raises Micron Target to $1,625 from $535"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "Get a jump start on the US trading day with Matt Miller and Dani Burger on \"Bloomberg Open Interest.\" Markets are higher as hopes for a peace deal between the US and Iran overshadowed military strikes in the Persian Gulf. Eli Lilly makes a nearly $4 billion vaccine push and reports promising cholesterol drug results. Plus, SpaceX’s IPO roadshow is sending space stocks soaring, and Ferrari’s first $640,000 EV draws major backlash from fans.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Open Interest\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "VYeOyXgqu3s",
+      "title": "Lilly Gets Back Into the Vaccine Business With New Deals",
+      "url": "https://www.youtube.com/watch?v=VYeOyXgqu3s",
+      "date": "2026-05-26",
+      "pub_tw": "05/26 22:44",
+      "pub_ts": 1779806653,
+      "thumbnail": "https://img.youtube.com/vi/VYeOyXgqu3s/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "3:07",
+      "chapters": [],
+      "hashtags": [],
+      "desc_lines": [
+        "Eli Lilly \\u0026 Co. is buying three clinical-stage vaccine developers for as much as $3.8 billion as it looks to become a leader in infectious diseases. The drugmaker has been using cash from its obesity drugs to expand into other disease areas. Bloomberg's Gerry Smith reports.\\r",
         "--------\\r",
         "More on Bloomberg Television and Markets\\r"
       ],
       "tw_stocks": [],
       "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "l5n2r-rDQOg",
+      "title": "Oil Rebounds as US Launches New Strikes on Iran",
+      "url": "https://www.youtube.com/watch?v=l5n2r-rDQOg",
+      "date": "2026-05-26",
+      "pub_tw": "05/26 21:05",
+      "pub_ts": 1779800732,
+      "thumbnail": "https://img.youtube.com/vi/l5n2r-rDQOg/maxresdefault.jpg",
+      "category": "Stock Market News & Analysis",
+      "category_icon": "📈",
+      "duration": "2:48",
+      "chapters": [],
+      "hashtags": [],
+      "desc_lines": [
+        "Oil rebounded as fresh US military strikes in Iran clouded the outlook for an interim deal between Tehran and Washington to reopen the Strait of Hormuz. Stephen Stapczynski reports.\\r",
+        "--------\\r",
+        "More on Bloomberg Television and Markets\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "Gxncf2G0X1I",
+      "title": "Oil Rebounds After US and Iran Clash Near Hormuz | Bloomberg Brief 5/26/2026",
+      "url": "https://www.youtube.com/watch?v=Gxncf2G0X1I",
+      "date": "2026-05-26",
+      "pub_tw": "05/26 19:13",
+      "pub_ts": 1779794036,
+      "thumbnail": "https://img.youtube.com/vi/Gxncf2G0X1I/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:24",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 46,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 212,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 890,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 1219,
+          "title": "Front Page News"
+        },
+        {
+          "time": 1367,
+          "title": "First Look Movers"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "Brent crude rebounds after US and Israeli jets struck Iranian vessels in the Strait of Hormuz, just hours after President Trump suggested peace talks were progressing. Katrina Dudley of Franklin Templeton discusses inflation risks and consumer pressure.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [],
+      "gemini": null
+    },
+    {
+      "id": "YNy5a5GaKWw",
+      "title": "US Stocks Eye Longest Stretch of Weekly Gains Since 2023 | Bloomberg Brief 5/22/2026",
+      "url": "https://www.youtube.com/watch?v=YNy5a5GaKWw",
+      "date": "2026-05-22",
+      "pub_tw": "05/22 19:18",
+      "pub_ts": 1779448691,
+      "thumbnail": "https://img.youtube.com/vi/YNy5a5GaKWw/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:29",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 51,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 184,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 672,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 1186,
+          "title": "Front Page News"
+        },
+        {
+          "time": 1375,
+          "title": "First Look Movers"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "The Pentagon weighs scrapping a conditional loan offer to rare-earths refiner ReElement Technologies amid an agreement that was meant to help break China's dominance on critical minerals. Shares of Spanish retail group Puig Brands drag as merger talks with Estee Lauder falls through. Priya Misra of JPMorgan Asset Management discussed the economic implications of a prolonged conflict in the Middle East. \\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "JPM"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "cDX3pT9izpU",
+      "title": "Nvidia Shares Muted After Fluctuation; Iran Assesses Trump's Proposal | Bloomberg Brief 5/21/2026",
+      "url": "https://www.youtube.com/watch?v=cDX3pT9izpU",
+      "date": "2026-05-21",
+      "pub_tw": "05/21 19:22",
+      "pub_ts": 1779362526,
+      "thumbnail": "https://img.youtube.com/vi/cDX3pT9izpU/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:23",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 51,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 232,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 674,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 794,
+          "title": "Frank Lee, HSBC Global Head"
+        },
+        {
+          "time": 1158,
+          "title": "Front Page News"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "US equity futures fall as Iran says it is assessing President Trump's latest peace proposal. Shares of Nvidia pauses post-earnings fluctuation after results faced investor skepticism. Frank Lee of HSBC analyzes Nvidia's results and forecast. Abigail Watt of UBS discusses the Fed minutes and the labor market.\\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "NVDA"
+      ],
+      "gemini": null
+    },
+    {
+      "id": "Bx5la-PLXOE",
+      "title": "Stocks Rebound Ahead of Nvidia Earnings; GOP Scores Win in Kentucky | Bloomberg Brief 5/20/2026",
+      "url": "https://www.youtube.com/watch?v=Bx5la-PLXOE",
+      "date": "2026-05-20",
+      "pub_tw": "05/20 19:25",
+      "pub_ts": 1779276318,
+      "thumbnail": "https://img.youtube.com/vi/Bx5la-PLXOE/maxresdefault.jpg",
+      "category": "Global Tech & Market Brief",
+      "category_icon": "💻",
+      "duration": "43:23",
+      "chapters": [
+        {
+          "time": 0,
+          "title": "喜歡這部影片嗎？"
+        },
+        {
+          "time": 49,
+          "title": "Global Market Check"
+        },
+        {
+          "time": 219,
+          "title": "First Look Movers"
+        },
+        {
+          "time": 819,
+          "title": "Trending on the Terminal"
+        },
+        {
+          "time": 1215,
+          "title": "Front Page News"
+        },
+        {
+          "time": 1377,
+          "title": "First Look Movers"
+        }
+      ],
+      "hashtags": [],
+      "desc_lines": [
+        "US equity futures rebound as investors await earnings from Nvidia Client. Ed Gallrein, President Trump's hand-picked candidate for a Kentucky congressional seat, defeats longtime GOP House member Thomas Massie in one of the most expensive primaries on record. Amy Wu Silverman of RBC Capital Markets discusses this earnings season. \\r",
+        "Chapters:\\r",
+        "00:00:00 - Bloomberg Brief\\r"
+      ],
+      "tw_stocks": [],
+      "us_stocks": [
+        "GOP",
+        "NVDA"
+      ],
       "gemini": null
     }
   ]
