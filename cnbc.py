@@ -94,21 +94,21 @@ def summarize_cnbc(video_url: str):
         from google import genai
         from google.genai import types as gtypes
         client = genai.Client(api_key=GEMINI_KEY)
-        prompt = """Analyze this CNBC (Mad Money / Fast Money / Halftime Report) video and return JSON:
+        prompt = """請用繁體中文分析這個 CNBC（Mad Money/Fast Money/Halftime Report）節目，以 JSON 格式回覆：
 
 {
   "stocks": [
-    {"code": "TICKER (US stock symbol)", "name": "Company Name",
-     "view": "bullish/bearish/neutral", "target": "price target if mentioned or null",
-     "note": "Cramer's or analyst's comment"}
+    {"code": "美股代碼（2-5個大寫字母）", "name": "公司名稱",
+     "view": "看多/看空/中性", "target": "目標價（如有提及，否則 null）",
+     "note": "Cramer或分析師的簡短評論"}
   ],
-  "market": ["key market take 1", "key take 2", "key take 3"],
-  "key_points": ["top investment insight 1", "insight 2", "insight 3", "insight 4"],
-  "sentiment": "optimistic/cautious/neutral"
+  "market": ["整體市場觀點1", "觀點2", "觀點3"],
+  "key_points": ["最重要投資建議1", "建議2", "建議3", "建議4"],
+  "sentiment": "樂觀/謹慎/中性"
 }
 
-Only include stocks explicitly discussed with a clear view. Real US ticker symbols only.
-Respond with valid JSON only."""
+只包含節目中有明確觀點的股票，使用真實美股代碼。
+只回覆 JSON，不要 markdown 格式。"""
 
         response = client.models.generate_content(
             model=GEMINI_MODEL,

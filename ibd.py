@@ -118,21 +118,21 @@ def summarize_ibd(video_url: str):
         from google import genai
         from google.genai import types as gtypes
         client = genai.Client(api_key=GEMINI_KEY)
-        prompt = """Analyze this Investor's Business Daily (IBD) video and return JSON:
+        prompt = """請用繁體中文分析這個 Investor's Business Daily (IBD) 節目，以 JSON 格式回覆：
 
 {
   "stocks": [
-    {"code": "TICKER (US stock symbol, 2-5 uppercase letters)", "name": "Company Name",
-     "view": "bullish/bearish/neutral", "target": "price target if mentioned or null",
-     "note": "brief analysis note"}
+    {"code": "美股代碼（2-5個大寫字母）", "name": "公司名稱",
+     "view": "看多/看空/中性", "target": "目標價（如有提及，否則 null）",
+     "note": "IBD分析師的簡短觀點"}
   ],
-  "market": ["key market observation 1", "observation 2", "observation 3"],
-  "key_points": ["top IBD investment insight 1", "insight 2", "insight 3", "insight 4", "insight 5"],
-  "sentiment": "optimistic/cautious/neutral"
+  "market": ["整體市場觀點1", "觀點2", "觀點3"],
+  "key_points": ["最重要投資建議1", "建議2", "建議3", "建議4", "建議5"],
+  "sentiment": "樂觀/謹慎/中性"
 }
 
-Only include stocks explicitly discussed. Use real US ticker symbols only.
-Respond with valid JSON only, no markdown."""
+只包含節目中實際討論的股票，使用真實美股代碼。
+只回覆 JSON，不要 markdown 格式。"""
 
         response = client.models.generate_content(
             model=GEMINI_MODEL,

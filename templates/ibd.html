@@ -350,7 +350,7 @@ async function runGemini(vidId, btn) {
   try {
     const gs = await fetch("/gemini/status").then(r=>r.json());
     if (gs.running) {
-      const names = {"ebcshow":"達人秀","ustv":"錢線百分百","ibd":"IBD","bloomberg":"Bloomberg市場分析","cnbc":"CNBC Mad Money"};
+      const names = {"ebcshow":"達人秀","ustv":"錢線百分百","ibd":"IBD","cnbc":"CNBC Mad Money"};
       const where = names[gs.page] || gs.page;
       alert(`⚠️ Only one video for Gemini at a time.\n目前「${where}」頁面有影片正在分析，請稍後再試。`);
       return;
