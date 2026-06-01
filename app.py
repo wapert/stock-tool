@@ -1529,10 +1529,18 @@ def scan_run():
     import json as _json
 
     market = request.args.get("market", "US").upper()
-    cache_key = f"scan:{market}"
-    cached = _cache.get(cache_key)
-    if cached:
-        return jsonify(cached)
+
+    # Shared file cache (works across all gunicorn workers)
+    scan_cache_file = f"/tmp/scan_cache_{market}.json"
+    SCAN_TTL = 60   # 1 minute
+    if os.path.exists(scan_cache_file):
+        try:
+            age = time.time() - os.path.getmtime(scan_cache_file)
+            if age < SCAN_TTL:
+                with open(scan_cache_file) as f:
+                    return jsonify(json.load(f))
+        except Exception:
+            pass
 
     # Lightweight scan lock — prevent duplicate heavy yf.download() calls
     scan_lock = f"/tmp/scan_running_{market}"
@@ -1629,7 +1637,14 @@ def scan_run():
         "results":        results,
         "ts":             int(time.time()),
     }
-    _cache.set(cache_key, payload, ttl=60)     # cache 1 min
+    # Write to shared file cache (all workers can read it)
+    try:
+        tmp = scan_cache_file + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(payload, f)
+        os.replace(tmp, scan_cache_file)
+    except Exception:
+        pass
     try: os.remove(scan_lock)                  # release scan lock
     except Exception: pass
     return jsonify(payload)
