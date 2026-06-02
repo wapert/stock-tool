@@ -23,8 +23,9 @@ A full-stack web application for analysing US and Taiwan stocks, options, and fi
 13. [Caching Architecture](#caching-architecture)
 14. [Video Pages & Gemini AI](#video-pages--gemini-ai)
 15. [Pages & Routes Reference](#pages--routes-reference)
-16. [Updating / Re-deploying](#updating--re-deploying)
-17. [Troubleshooting](#troubleshooting)
+16. [Annual Maintenance — Calendar Data](#annual-maintenance--calendar-data)
+17. [Updating / Re-deploying](#updating--re-deploying)
+18. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -597,6 +598,143 @@ On page load, `_resumePending()` reads the key and resumes polling if an analysi
 | GET/POST | `/ibd/data`, `/ibd/refresh`, `/ibd/summarize`, `/ibd/status` | Same pattern |
 | GET | `/cnbc` | CNBC page |
 | GET/POST | `/cnbc/data`, `/cnbc/refresh`, `/cnbc/summarize`, `/cnbc/status` | Same pattern |
+
+---
+
+## Annual Maintenance — Calendar Data
+
+The calendar page combines **auto-calculated** events (works forever) with **year-specific** data stored in `static/calendar_data.json`. The JSON file currently covers 2025–2027. Each January, add the new year's data so the calendar stays current.
+
+### What is auto-calculated (no action needed)
+
+| Data | Rule |
+|------|------|
+| US market holidays | Computed from fixed rules (MLK = 3rd Monday Jan, Easter formula, etc.) |
+| TAIFEX settlement dates | 3rd Wednesday of each month, shifted back if it falls on a TW holiday |
+| Taiwan earnings deadlines | Always Mar 31 / May 15 / Aug 14 / Nov 14 |
+
+### What needs annual update (add to `calendar_data.json` each January)
+
+| Data | Source | Frequency |
+|------|--------|-----------|
+| FOMC meeting dates | [federalreserve.gov](https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm) | Released ~12 months ahead |
+| Taiwan market holidays | [TWSE holiday announcement](https://www.twse.com.tw/zh/products/holiday/holiday.html) | Published each October for next year |
+| Taiwan CBC meeting dates | [cbc.gov.tw](https://www.cbc.gov.tw/tw/cp-1046-208610-A0053-1.html) | Published quarterly |
+
+### Step-by-step update guide
+
+#### 1. Open the calendar data file
+
+```bash
+# On your local machine (then push via git):
+nano stock_app/static/calendar_data.json
+```
+
+#### 2. Add FOMC data for the new year
+
+Go to https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm and find the schedule for the new year. Each meeting is a two-day event; the **second day** is the announcement day.
+
+Meetings with a dot plot (★) occur in March, June, September, December.
+
+Add a new key under `"fomc"`:
+
+```json
+"fomc": {
+  "2027": [ ... existing ... ],
+  "2028": [
+    {"start": "2028-01-25", "end": "2028-01-26", "dot": false},
+    {"start": "2028-03-19", "end": "2028-03-20", "dot": true},
+    {"start": "2028-04-25", "end": "2028-04-26", "dot": false},
+    {"start": "2028-06-13", "end": "2028-06-14", "dot": true},
+    {"start": "2028-07-25", "end": "2028-07-26", "dot": false},
+    {"start": "2028-09-19", "end": "2028-09-20", "dot": true},
+    {"start": "2028-10-24", "end": "2028-10-25", "dot": false},
+    {"start": "2028-12-12", "end": "2028-12-13", "dot": true}
+  ]
+}
+```
+
+> **`"dot": true`** marks meetings that include the Summary of Economic Projections (dot plot). These are always the March / June / September / December meetings.
+
+#### 3. Add Taiwan market holidays for the new year
+
+Go to the [TWSE holiday page](https://www.twse.com.tw/zh/products/holiday/holiday.html) — the announcement for the following year is published each October.
+
+Add a new key under `"tw_holidays"`:
+
+```json
+"tw_holidays": {
+  "2027": { ... existing ... },
+  "2028": {
+    "2028-01-01": "元旦",
+    "2028-01-26": "農曆年封關",
+    "2028-01-27": "春節",
+    "2028-01-28": "春節",
+    "2028-01-29": "春節",
+    "2028-01-30": "春節",
+    "2028-02-28": "和平紀念日",
+    "2028-04-04": "兒童節/清明節",
+    "2028-05-01": "勞動節",
+    "2028-06-08": "端午節",
+    "2028-09-15": "中秋節",
+    "2028-10-10": "國慶日"
+  }
+}
+```
+
+> **Special dates to watch:**
+> - 春節 (Lunar New Year) — date shifts each year; check TWSE announcement
+> - 補假 (make-up holidays) — government announces these; check TWSE announcement
+> - 農曆年封關 / 春節後開盤 — last trading day before and first trading day after CNY
+
+#### 4. Add Taiwan CBC meeting dates for the new year
+
+The CBC holds **four quarterly meetings** per year, typically the third Thursday of March, June, September, and December. Check [cbc.gov.tw](https://www.cbc.gov.tw) for the official schedule.
+
+Add a new key under `"cbc_dates"`:
+
+```json
+"cbc_dates": {
+  "2027": { ... existing ... },
+  "2028": {
+    "2028-03-16": "台灣央行利率決策 (Q1 2028)",
+    "2028-06-15": "台灣央行利率決策 (Q2 2028)",
+    "2028-09-21": "台灣央行利率決策 (Q3 2028)",
+    "2028-12-21": "台灣央行利率決策 (Q4 2028)"
+  }
+}
+```
+
+#### 5. Commit, push, and deploy
+
+```bash
+cd stock_app
+git add static/calendar_data.json
+git commit -m "chore: add 2028 calendar data (FOMC, TW holidays, CBC)"
+git push origin main
+```
+
+Then pull on both VMs (see [Updating / Re-deploying](#updating--re-deploying)).
+
+### Missing year warning
+
+If someone opens the calendar for a year not yet in `calendar_data.json`, the UI automatically shows a warning event:
+
+> ⚠️ 2028 FOMC 資料未更新 — 請至 static/calendar_data.json 新增 2028 年 FOMC 資料
+
+This is a reminder to add data; it does not break other calendar events.
+
+### JSON file structure reference
+
+```
+static/calendar_data.json
+├── fomc
+│   └── "YYYY": [ {start, end, dot}, ... ]   ← 8 meetings per year
+├── tw_holidays
+│   └── "YYYY": { "YYYY-MM-DD": "名稱", ... }
+└── cbc_dates
+    └── "YYYY": { "YYYY-MM-DD": "名稱", ... }   ← 4 entries per year
+```
 
 ---
 
