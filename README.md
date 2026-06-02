@@ -338,9 +338,9 @@ ssh -i ~/.ssh/google_compute_engine 34.27.24.0
 sudo apt update && sudo apt install -y python3-venv python3-pip nginx certbot python3-certbot-nginx git
 
 # 3. Create service user and clone repo
-sudo useradd -m wapertech
-sudo -u wapertech bash -c "
-  cd /home/wapertech &&
+sudo useradd -m youruser
+sudo -u youruser bash -c "
+  cd /home/youruser &&
   git clone https://github.com/wapert/stock-tool.git &&
   cd stock-tool &&
   python3 -m venv venv &&
@@ -348,7 +348,7 @@ sudo -u wapertech bash -c "
 "
 
 # 4. Create .env (ALPACA + GEMINI only; skip SHIOAJI on GCP)
-sudo -u wapertech nano /home/wapertech/stock-tool/.env
+sudo -u youruser nano /home/youruser/stock-tool/.env
 
 # 5. Configure Nginx and get SSL cert
 sudo certbot --nginx -d your-gcp-domain.example.com
@@ -418,10 +418,10 @@ Description=Stock Analysis Tool
 After=network.target
 
 [Service]
-User=wapertech
-WorkingDirectory=/home/wapertech/stock-tool
-Environment="PATH=/home/wapertech/stock-tool/venv/bin"
-ExecStart=/home/wapertech/stock-tool/venv/bin/gunicorn app:app \
+User=youruser
+WorkingDirectory=/home/youruser/stock-tool
+Environment="PATH=/home/youruser/stock-tool/venv/bin"
+ExecStart=/home/youruser/stock-tool/venv/bin/gunicorn app:app \
     --bind 127.0.0.1:5050 --workers 1 --timeout 120
 Restart=always
 
@@ -616,7 +616,7 @@ ssh -i your-key.key ubuntu@your-oracle-domain.example.com \
 **GCP:**
 ```bash
 ssh 34.27.24.0 \
-  "sudo -u wapertech bash -c 'cd /home/wapertech/stock-tool && git pull origin main' && \
+  "sudo -u youruser bash -c 'cd /home/youruser/stock-tool && git pull origin main' && \
    sudo systemctl restart stocktool.service"
 ```
 
