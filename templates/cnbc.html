@@ -462,7 +462,7 @@ async function runGemini(vidId, btn) {
 }
 
 // ── Persistent pending state ──────────────────────────────────────────────────
-const LS_KEY = "gemini_pending";
+const LS_KEY = "gemini_pending_cnbc";
 
 function _setPending(vidId, pending) {
   const set = new Set(JSON.parse(localStorage.getItem(LS_KEY)||"[]"));
