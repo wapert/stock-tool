@@ -538,11 +538,27 @@ def market_data_api():
     if market not in ("US", "TW"):
         return jsonify({"error": "market must be US or TW"}), 400
     ttl = TTL_MARKET_US if market == "US" else TTL_MARKET_TW
-    data = _cache.get_or_fetch(
-        f"market:{market}",
-        lambda: get_market_overview(market),
-        ttl
-    )
+
+    # Shared file cache (works across all gunicorn workers)
+    market_cache_file = f"/tmp/market_cache_{market}.json"
+    if os.path.exists(market_cache_file):
+        try:
+            if time.time() - os.path.getmtime(market_cache_file) < ttl:
+                with open(market_cache_file) as f:
+                    return jsonify(json.load(f))
+        except Exception:
+            pass
+
+    data = get_market_overview(market)
+
+    try:
+        tmp = market_cache_file + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, market_cache_file)
+    except Exception:
+        pass
+
     return jsonify(data)
 
 
