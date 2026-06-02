@@ -9,21 +9,22 @@ A full-stack web application for analysing US and Taiwan stocks, options, and fi
 1. [Architecture Overview](#architecture-overview)
 2. [Features](#features)
 3. [Prerequisites](#prerequisites)
-4. [External APIs & Keys](#external-apis--keys)
-5. [Directory Structure](#directory-structure)
-6. [Local Development Setup](#local-development-setup)
-7. [Production Deployment (VM)](#production-deployment-vm)
+4. [DNS Setup](#dns-setup)
+5. [External APIs & Keys](#external-apis--keys)
+6. [Directory Structure](#directory-structure)
+7. [Local Development Setup](#local-development-setup)
+8. [Production Deployment (VM)](#production-deployment-vm)
    - [Oracle Cloud ARM64 (Primary)](#oracle-cloud-arm64-primary)
    - [GCP e2-micro (Mirror)](#gcp-e2-micro-mirror)
-8. [Nginx Configuration](#nginx-configuration)
-9. [Systemd Service](#systemd-service)
-10. [Environment Variables (.env)](#environment-variables-env)
-11. [gunicorn_config.py Reference](#gunicorn_configpy-reference)
-12. [Caching Architecture](#caching-architecture)
-13. [Video Pages & Gemini AI](#video-pages--gemini-ai)
-14. [Pages & Routes Reference](#pages--routes-reference)
-15. [Updating / Re-deploying](#updating--re-deploying)
-16. [Troubleshooting](#troubleshooting)
+9. [Nginx Configuration](#nginx-configuration)
+10. [Systemd Service](#systemd-service)
+11. [Environment Variables (.env)](#environment-variables-env)
+12. [gunicorn_config.py Reference](#gunicorn_configpy-reference)
+13. [Caching Architecture](#caching-architecture)
+14. [Video Pages & Gemini AI](#video-pages--gemini-ai)
+15. [Pages & Routes Reference](#pages--routes-reference)
+16. [Updating / Re-deploying](#updating--re-deploying)
+17. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -51,8 +52,8 @@ Two live deployments:
 
 | VM | Provider | Hostname | Workers | TW Real-time (Shioaji) |
 |----|----------|----------|---------|------------------------|
-| Oracle ARM64 A1 (6 GB RAM) | Oracle Cloud | stocktool.mooo.com | 4 | Yes |
-| GCP e2-micro (1 GB RAM) | Google Cloud | mystocks.mooo.com | 1 | No (yfinance fallback) |
+| Oracle ARM64 A1 (6 GB RAM) | Oracle Cloud | your-oracle-domain.example.com | 4 | Yes |
+| GCP e2-micro (1 GB RAM) | Google Cloud | your-gcp-domain.example.com | 1 | No (yfinance fallback) |
 
 ---
 
@@ -85,8 +86,62 @@ All video pages: YouTube RSS feed → page scrape → Gemini 2.5-flash AI summar
 | Nginx | 1.18+ | Reverse proxy + SSL termination |
 | Certbot | any | Let's Encrypt TLS certificates |
 | Git | 2.x | Pulling updates from GitHub |
+| A domain name | — | Required for HTTPS — see DNS Setup below |
 | Miniforge (Oracle) | latest | ARM64 conda — some packages need ARM wheels |
 | venv (GCP/local) | stdlib | Standard Python virtual environment |
+
+---
+
+## DNS Setup
+
+You need a **domain name** that points to your VM's public IP before you can obtain an HTTPS certificate with Certbot. You can use a free dynamic DNS service or a paid registrar.
+
+### Option A: Free DNS — mooo.com (freedns.afraid.org)
+
+1. Go to https://freedns.afraid.org and create a free account
+2. Click **Subdomains** → **Add a subdomain**
+3. Choose a hostname (e.g. `mystocktool`) and a free parent domain (e.g. `mooo.com`)
+4. Enter your VM's **public IP address** in the Destination field
+5. Save — your domain is now `yourname.mooo.com`
+6. Repeat for your second VM if you have one (e.g. `mystocktool2.mooo.com`)
+
+### Option B: Free DNS — DuckDNS
+
+1. Go to https://www.duckdns.org and sign in with GitHub/Google
+2. Enter a subdomain name → click **add domain**
+3. Your domain is `yourname.duckdns.org`
+4. Update the IP to your VM's public IP on that page
+
+### Option C: Paid domain (Namecheap, Google Domains, etc.)
+
+1. Purchase a domain from any registrar
+2. In the DNS settings, add an **A record** pointing to your VM's public IP:
+   ```
+   Type: A
+   Name: @  (or a subdomain like "stock")
+   Value: <your VM public IP>
+   TTL: 300
+   ```
+
+### Finding your VM's public IP
+
+- **Oracle Cloud:** Compute → Instances → your instance → Public IP address
+- **GCP:** Compute Engine → VM instances → External IP column
+
+### After DNS is set up
+
+Verify the domain resolves before running Certbot:
+```bash
+ping your-domain.example.com
+# Should resolve to your VM's IP
+```
+
+Then run Certbot to get a free HTTPS certificate:
+```bash
+sudo certbot --nginx -d your-domain.example.com
+```
+
+> **Note:** Free dynamic DNS subdomains (mooo.com, duckdns.org) are fully supported by Let's Encrypt / Certbot.
 
 ---
 
@@ -208,7 +263,7 @@ open http://localhost:5050
 
 ```bash
 # 1. SSH into the VM
-ssh -i your-ssh-key.key ubuntu@stocktool.mooo.com
+ssh -i your-ssh-key.key ubuntu@your-oracle-domain.example.com
 
 # 2. Install Miniforge (ARM64 conda — required for shioaji ARM wheels)
 wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh
@@ -233,7 +288,7 @@ sudo apt update && sudo apt install -y nginx certbot python3-certbot-nginx
 # 7. Configure Nginx (see Nginx section below)
 
 # 8. Obtain SSL certificate
-sudo certbot --nginx -d stocktool.mooo.com
+sudo certbot --nginx -d your-oracle-domain.example.com
 
 # 9. Create systemd service (see Systemd section below)
 sudo systemctl daemon-reload
@@ -296,7 +351,7 @@ sudo -u wapertech bash -c "
 sudo -u wapertech nano /home/wapertech/stock-tool/.env
 
 # 5. Configure Nginx and get SSL cert
-sudo certbot --nginx -d mystocks.mooo.com
+sudo certbot --nginx -d your-gcp-domain.example.com
 
 # 6. Create systemd service and start
 sudo systemctl daemon-reload
@@ -313,7 +368,7 @@ Create `/etc/nginx/sites-available/stocktool`:
 ```nginx
 server {
     listen 80;
-    server_name stocktool.mooo.com;   # Change to your domain
+    server_name your-domain.example.com;   # Replace with your own domain
 
     location / {
         proxy_pass         http://127.0.0.1:5050;
@@ -551,7 +606,7 @@ Push your changes to GitHub, then on each VM:
 
 **Oracle:**
 ```bash
-ssh -i your-key.key ubuntu@stocktool.mooo.com \
+ssh -i your-key.key ubuntu@your-oracle-domain.example.com \
   "cd ~/stock-tool && git pull origin main && \
    kill -9 \$(pgrep -f gunicorn) 2>/dev/null; sleep 1 && \
    nohup ~/miniforge3/bin/gunicorn app:app \
