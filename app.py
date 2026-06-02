@@ -133,6 +133,121 @@ PROFILES_FILE = os.path.join(_data_dir, "profiles.json")
 
 _profiles_lock = threading.Lock()   # serialise all reads + writes
 
+# ── Calendar helper functions ─────────────────────────────────────────────────
+
+def _load_calendar_data() -> dict:
+    """Load calendar_data.json once per process (cached in module-level var)."""
+    global _calendar_data_cache
+    if _calendar_data_cache is not None:
+        return _calendar_data_cache
+    try:
+        path = os.path.join(_here, "static", "calendar_data.json")
+        with open(path, encoding="utf-8") as f:
+            _calendar_data_cache = json.load(f)
+    except Exception:
+        _calendar_data_cache = {}
+    return _calendar_data_cache
+
+_calendar_data_cache = None   # module-level cache; reset on process restart
+
+
+def _nth_weekday(year: int, month: int, weekday: int, n: int) -> "datetime.date":
+    """Return the nth occurrence of weekday (0=Mon … 6=Sun) in given month."""
+    import datetime as _dt
+    d = _dt.date(year, month, 1)
+    # advance to first matching weekday
+    diff = (weekday - d.weekday()) % 7
+    d += _dt.timedelta(days=diff)
+    d += _dt.timedelta(weeks=n - 1)
+    return d
+
+
+def _last_weekday(year: int, month: int, weekday: int) -> "datetime.date":
+    """Return the last occurrence of weekday in given month."""
+    import datetime as _dt, calendar as _cal
+    last_day = _dt.date(year, month, _cal.monthrange(year, month)[1])
+    diff = (last_day.weekday() - weekday) % 7
+    return last_day - _dt.timedelta(days=diff)
+
+
+def _easter(year: int) -> "datetime.date":
+    """Anonymous Gregorian algorithm for Easter Sunday."""
+    import datetime as _dt
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(h + l - 7 * m + 114, 31)
+    return _dt.date(year, month, day + 1)
+
+
+def _observed(d: "datetime.date") -> "datetime.date":
+    """NYSE holiday-observation rule: Sat→Fri, Sun→Mon."""
+    import datetime as _dt
+    if d.weekday() == 5:   # Saturday → Friday
+        return d - _dt.timedelta(days=1)
+    if d.weekday() == 6:   # Sunday → Monday
+        return d + _dt.timedelta(days=1)
+    return d
+
+
+def _us_holidays(year: int) -> dict:
+    """
+    Calculate NYSE market holidays for any year algorithmically.
+    Returns {date_str: name} dict.
+    """
+    import datetime as _dt
+    h = {}
+    def add(d, name):
+        h[d.strftime("%Y-%m-%d")] = name
+
+    add(_observed(_dt.date(year, 1, 1)),   "New Year's Day")
+    add(_nth_weekday(year, 1, 0, 3),       "MLK Day")            # 3rd Monday Jan
+    add(_nth_weekday(year, 2, 0, 3),       "Presidents Day")     # 3rd Monday Feb
+    add(_easter(year) - _dt.timedelta(days=2), "Good Friday")    # Easter - 2
+    add(_last_weekday(year, 5, 0),         "Memorial Day")       # Last Monday May
+    add(_observed(_dt.date(year, 6, 19)),  "Juneteenth")
+    add(_observed(_dt.date(year, 7, 4)),   "Independence Day")
+    add(_nth_weekday(year, 9, 0, 1),       "Labor Day")          # 1st Monday Sep
+    add(_nth_weekday(year, 11, 3, 4),      "Thanksgiving")       # 4th Thursday Nov
+    add(_observed(_dt.date(year, 12, 25)), "Christmas Day")
+    return h
+
+
+def _taifex_dates(year: int, tw_holidays: dict) -> list:
+    """
+    Calculate TAIFEX settlement dates for a year.
+    Rule: 3rd Wednesday of each month; shift back 1 day if it falls on a TW holiday.
+    Returns list of date strings.
+    """
+    import datetime as _dt
+    dates = []
+    for month in range(1, 13):
+        d = _nth_weekday(year, month, 2, 3)   # 3rd Wednesday (weekday 2)
+        # Shift back if it lands on a TW market holiday
+        while d.strftime("%Y-%m-%d") in tw_holidays:
+            d -= _dt.timedelta(days=1)
+        dates.append(d.strftime("%Y-%m-%d"))
+    return dates
+
+
+def _tw_deadlines(year: int) -> dict:
+    """
+    Taiwan statutory earnings report deadlines — fixed dates, any year.
+    Q4 annual report: Mar 31 | Q1: May 15 | Q2: Aug 14 | Q3: Nov 14
+    """
+    return {
+        f"{year}-03-31": "Q4財報截止日 (上市公司年報)",
+        f"{year}-05-15": "Q1財報截止日",
+        f"{year}-08-14": "Q2財報截止日 (除息旺季結束)",
+        f"{year}-11-14": "Q3財報截止日",
+    }
+
 
 def load_profiles() -> dict:
     """
@@ -939,71 +1054,35 @@ def calendar_events():
             for res in ex.map(fetch_cal, syms):
                 events.extend(res)
 
-        # US market holidays 2025-2026
-        us_holidays = {
-            "2025-01-01":"New Year's Day", "2025-01-20":"MLK Day",
-            "2025-02-17":"Presidents Day", "2025-04-18":"Good Friday",
-            "2025-05-26":"Memorial Day",   "2025-06-19":"Juneteenth",
-            "2025-07-04":"Independence Day","2025-09-01":"Labor Day",
-            "2025-11-27":"Thanksgiving",    "2025-12-25":"Christmas Day",
-            "2026-01-01":"New Year's Day", "2026-01-19":"MLK Day",
-            "2026-02-16":"Presidents Day", "2026-04-03":"Good Friday",
-            "2026-05-25":"Memorial Day",   "2026-06-19":"Juneteenth",
-            "2026-07-03":"Independence Day","2026-09-07":"Labor Day",
-            "2026-11-26":"Thanksgiving",    "2026-11-27":"Black Friday (½ day)",
-            "2026-12-25":"Christmas Day",
-        }
-        for hdate, hname in us_holidays.items():
+        # ── US market holidays (calculated algorithmically for any year) ──
+        for hdate, hname in _us_holidays(year).items():
             if hdate.startswith(ym):
                 events.append({"date": hdate, "type": "holiday",
                                 "symbol": "", "name": hname, "detail": "市場休市"})
 
-        # FOMC meeting dates (announcement day = 2nd day of meeting)
-        # * = includes Summary of Economic Projections (dot plot)
-        fomc = {
-            # 2025
-            "2025-01-28":{"start":"2025-01-28","end":"2025-01-29","dot":False},
-            "2025-01-29":{"start":"2025-01-28","end":"2025-01-29","dot":False,"announce":True},
-            "2025-03-18":{"start":"2025-03-18","end":"2025-03-19","dot":True},
-            "2025-03-19":{"start":"2025-03-18","end":"2025-03-19","dot":True,"announce":True},
-            "2025-05-06":{"start":"2025-05-06","end":"2025-05-07","dot":False},
-            "2025-05-07":{"start":"2025-05-06","end":"2025-05-07","dot":False,"announce":True},
-            "2025-06-17":{"start":"2025-06-17","end":"2025-06-18","dot":True},
-            "2025-06-18":{"start":"2025-06-17","end":"2025-06-18","dot":True,"announce":True},
-            "2025-07-29":{"start":"2025-07-29","end":"2025-07-30","dot":False},
-            "2025-07-30":{"start":"2025-07-29","end":"2025-07-30","dot":False,"announce":True},
-            "2025-09-16":{"start":"2025-09-16","end":"2025-09-17","dot":True},
-            "2025-09-17":{"start":"2025-09-16","end":"2025-09-17","dot":True,"announce":True},
-            "2025-10-28":{"start":"2025-10-28","end":"2025-10-29","dot":False},
-            "2025-10-29":{"start":"2025-10-28","end":"2025-10-29","dot":False,"announce":True},
-            "2025-12-09":{"start":"2025-12-09","end":"2025-12-10","dot":True},
-            "2025-12-10":{"start":"2025-12-09","end":"2025-12-10","dot":True,"announce":True},
-            # 2026
-            "2026-01-27":{"start":"2026-01-27","end":"2026-01-28","dot":False},
-            "2026-01-28":{"start":"2026-01-27","end":"2026-01-28","dot":False,"announce":True},
-            "2026-03-17":{"start":"2026-03-17","end":"2026-03-18","dot":True},
-            "2026-03-18":{"start":"2026-03-17","end":"2026-03-18","dot":True,"announce":True},
-            "2026-04-28":{"start":"2026-04-28","end":"2026-04-29","dot":False},
-            "2026-04-29":{"start":"2026-04-28","end":"2026-04-29","dot":False,"announce":True},
-            "2026-06-16":{"start":"2026-06-16","end":"2026-06-17","dot":True},
-            "2026-06-17":{"start":"2026-06-16","end":"2026-06-17","dot":True,"announce":True},
-            "2026-07-28":{"start":"2026-07-28","end":"2026-07-29","dot":False},
-            "2026-07-29":{"start":"2026-07-28","end":"2026-07-29","dot":False,"announce":True},
-            "2026-09-15":{"start":"2026-09-15","end":"2026-09-16","dot":True},
-            "2026-09-16":{"start":"2026-09-15","end":"2026-09-16","dot":True,"announce":True},
-            "2026-10-27":{"start":"2026-10-27","end":"2026-10-28","dot":False},
-            "2026-10-28":{"start":"2026-10-27","end":"2026-10-28","dot":False,"announce":True},
-            "2026-12-08":{"start":"2026-12-08","end":"2026-12-09","dot":True},
-            "2026-12-09":{"start":"2026-12-08","end":"2026-12-09","dot":True,"announce":True},
-        }
-        for fdate, info in fomc.items():
-            if fdate.startswith(ym):
-                is_announce = info.get("announce", False)
-                dot_str     = " (含點陣圖)" if info["dot"] else ""
-                label       = f"FOMC 利率決策{dot_str} ⚡" if is_announce else f"FOMC 會議 Day1"
-                detail      = f"2:00 PM ET 公布利率決策{dot_str}" if is_announce else f"會議第一天 ({info['start']} ~ {info['end']})"
-                events.append({"date": fdate, "type": "fed",
-                                "symbol": "FED", "name": label, "detail": detail})
+        # ── FOMC meeting dates (loaded from calendar_data.json) ───────────
+        cal_data = _load_calendar_data()
+        fomc_year = cal_data.get("fomc", {}).get(str(year), [])
+        if not fomc_year:
+            # Show a warning event so the user knows data is missing
+            events.append({"date": f"{year}-01-01", "type": "warning", "symbol": "",
+                "name": f"⚠️ {year} FOMC 資料未更新",
+                "detail": f"請至 static/calendar_data.json 新增 {year} 年 FOMC 資料"})
+        for meeting in fomc_year:
+            end_date = meeting["end"]
+            start_date = meeting["start"]
+            dot = meeting.get("dot", False)
+            dot_str = " (含點陣圖)" if dot else ""
+            # Day 1
+            if start_date.startswith(ym):
+                events.append({"date": start_date, "type": "fed", "symbol": "FED",
+                    "name": f"FOMC 會議 Day1",
+                    "detail": f"會議第一天 ({start_date} ~ {end_date})"})
+            # Announcement day (Day 2)
+            if end_date.startswith(ym):
+                events.append({"date": end_date, "type": "fed", "symbol": "FED",
+                    "name": f"FOMC 利率決策{dot_str} ⚡",
+                    "detail": f"2:00 PM ET 公布利率決策{dot_str}"})
 
     else:  # TW
         # ── TWSE ex-dividend/rights calendar ──────────────────────────────
@@ -1064,96 +1143,49 @@ def calendar_events():
         except Exception:
             pass
 
+        cal_data = _load_calendar_data()
+
         # ── FOMC (US Fed impacts TW tech stocks significantly) ────────────
-        fomc_announce = {
-            "2025-01-29","2025-03-19","2025-05-07","2025-06-18",
-            "2025-07-30","2025-09-17","2025-10-29","2025-12-10",
-            "2026-01-28","2026-03-18","2026-04-29","2026-06-17",
-            "2026-07-29","2026-09-16","2026-10-28","2026-12-09",
-        }
-        fomc_dot = {"2025-03-19","2025-06-18","2025-09-17","2025-12-10",
-                    "2026-03-18","2026-06-17","2026-09-16","2026-12-09"}
-        for fdate in fomc_announce:
-            if fdate.startswith(ym):
-                dot = fdate in fomc_dot
-                events.append({"date": fdate, "type": "fed", "symbol": "FED",
+        fomc_year = cal_data.get("fomc", {}).get(str(year), [])
+        for meeting in fomc_year:
+            end_date = meeting["end"]
+            dot = meeting.get("dot", False)
+            if end_date.startswith(ym):
+                events.append({"date": end_date, "type": "fed", "symbol": "FED",
                     "name": f"美國FOMC利率決策{'(含點陣圖)' if dot else ''}⚡",
                     "detail": "2:00 PM ET — 台股外資動向重要參考"})
 
-        # ── Taiwan CBC 央行理監事會議 (quarterly) ─────────────────────────
-        cbc_dates = {
-            # 2025
-            "2025-03-20":"台灣央行利率決策 (Q1 2025)",
-            "2025-06-19":"台灣央行利率決策 (Q2 2025)",
-            "2025-09-18":"台灣央行利率決策 (Q3 2025)",
-            "2025-12-18":"台灣央行利率決策 (Q4 2025)",
-            # 2026
-            "2026-03-19":"台灣央行利率決策 (Q1 2026)",
-            "2026-06-18":"台灣央行利率決策 (Q2 2026)",
-            "2026-09-17":"台灣央行利率決策 (Q3 2026)",
-            "2026-12-17":"台灣央行利率決策 (Q4 2026)",
-        }
-        for cdate, cname in cbc_dates.items():
+        # ── Taiwan CBC 央行理監事會議 (loaded from calendar_data.json) ────
+        cbc_year = cal_data.get("cbc_dates", {}).get(str(year), {})
+        if not cbc_year:
+            events.append({"date": f"{year}-01-01", "type": "warning", "symbol": "",
+                "name": f"⚠️ {year} 央行會議資料未更新",
+                "detail": f"請至 static/calendar_data.json 新增 {year} 年 CBC 資料"})
+        for cdate, cname in cbc_year.items():
             if cdate.startswith(ym):
                 events.append({"date": cdate, "type": "cbc", "symbol": "CBC",
                     "name": cname, "detail": "台灣央行理監事聯席會議決議"})
 
-        # ── TAIFEX 台指期/選擇權結算日 ───────────────────────────────────
-        # Third Wednesday of each month (with exceptions for holidays)
-        taifex_2026 = {
-            "2026-01-21","2026-02-23",  # Feb delayed due to Lunar New Year
-            "2026-03-18","2026-04-15","2026-05-20","2026-06-17",
-            "2026-07-15","2026-08-19","2026-09-16","2026-10-21",
-            "2026-11-18","2026-12-16",
-        }
-        taifex_2025 = {
-            "2025-01-15","2025-02-19","2025-03-19","2025-04-16",
-            "2025-05-21","2025-06-18","2025-07-16","2025-08-20",
-            "2025-09-17","2025-10-15","2025-11-19","2025-12-17",
-        }
-        for sdate in taifex_2026 | taifex_2025:
+        # ── TAIFEX 台指期/選擇權結算日 (calculated: 3rd Wednesday) ────────
+        tw_hols = cal_data.get("tw_holidays", {}).get(str(year), {})
+        for sdate in _taifex_dates(year, tw_hols):
             if sdate.startswith(ym):
                 events.append({"date": sdate, "type": "taifex", "symbol": "結算",
                     "name": "台指期/選擇權結算日", "detail": "13:30 停止交易，以均價結算"})
 
-        # ── Taiwan market holidays 2025-2026 ─────────────────────────────
-        tw_holidays = {
-            "2025-01-01":"元旦", "2025-01-27":"農曆年封關",
-            "2025-01-28":"春節","2025-01-29":"春節","2025-01-30":"春節",
-            "2025-01-31":"春節","2025-02-03":"彈性補假",
-            "2025-02-28":"和平紀念日",
-            "2025-04-03":"兒童節(補假)","2025-04-04":"清明節",
-            "2025-05-01":"勞動節",
-            "2025-05-30":"端午節(補假)","2025-05-31":"端午節(補假)",
-            "2025-10-10":"國慶日",
-            "2026-01-01":"元旦",
-            "2026-02-16":"農曆年封關","2026-02-17":"春節",
-            "2026-02-18":"春節","2026-02-19":"春節",
-            "2026-02-20":"春節","2026-02-23":"春節後開盤",
-            "2026-02-28":"和平紀念日(補假)",
-            "2026-04-04":"兒童節/清明節",
-            "2026-06-19":"端午節",
-            "2026-09-25":"中秋節",
-            "2026-10-09":"國慶日(補假)","2026-10-10":"國慶日",
-        }
-        for hdate, hname in tw_holidays.items():
+        # ── Taiwan market holidays (loaded from calendar_data.json) ───────
+        tw_hols_year = cal_data.get("tw_holidays", {}).get(str(year), {})
+        if not tw_hols_year:
+            events.append({"date": f"{year}-01-01", "type": "warning", "symbol": "",
+                "name": f"⚠️ {year} 台股假日資料未更新",
+                "detail": f"請至 static/calendar_data.json 新增 {year} 年台股休市資料"})
+        for hdate, hname in tw_hols_year.items():
             if hdate.startswith(ym):
                 events.append({"date": hdate, "type": "holiday", "symbol": "",
                     "name": hname, "detail": "台股休市" if "封關" not in hname and "開盤" not in hname else ""})
 
-        # ── Taiwan earnings season 財報季 ─────────────────────────────────
-        # Q4 results: Mar 31 deadline | Q1: May 15 | Q2: Aug 14 | Q3: Nov 14
-        tw_deadlines = {
-            "2025-03-31":"Q4財報截止日 (上市公司年報)",
-            "2025-05-15":"Q1財報截止日",
-            "2025-08-14":"Q2財報截止日 (除息旺季結束)",
-            "2025-11-14":"Q3財報截止日",
-            "2026-03-31":"Q4財報截止日 (上市公司年報)",
-            "2026-05-15":"Q1財報截止日",
-            "2026-08-14":"Q2財報截止日 (除息旺季結束)",
-            "2026-11-14":"Q3財報截止日",
-        }
-        for ddate, dname in tw_deadlines.items():
+        # ── Taiwan earnings deadlines (calculated for any year) ───────────
+        for ddate, dname in _tw_deadlines(year).items():
             if ddate.startswith(ym):
                 events.append({"date": ddate, "type": "deadline", "symbol": "財報",
                     "name": dname, "detail": "上市/上櫃公司財務報告申報截止"})
