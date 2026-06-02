@@ -1,6 +1,6 @@
 """CNBC Television (@CNBCtelevision) — Mad Money, Fast Money, Halftime Report."""
 import os, re, json, datetime, logging
-from show_fetcher import (run_fetch, fetch_rss, scrape_video_page, extract_stocks)
+from show_fetcher import filter_recent_videos, run_fetch, fetch_rss, scrape_video_page, extract_stocks
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger(__name__)
@@ -193,6 +193,7 @@ def run_daily_fetch():
         results.append(entry)
 
     all_videos = list({v["id"]: v for v in results}.values())
+    all_videos = filter_recent_videos(all_videos, days=5)
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date", ""), reverse=True)
     all_videos = all_videos[:30]
 

@@ -8,6 +8,36 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger(__name__)
 
+
+def filter_recent_videos(videos, days=5):
+    """Remove videos older than `days` days. Keeps videos with unknown dates."""
+    cutoff_ts = datetime.datetime.now(datetime.timezone.utc).timestamp() - days * 86400
+    result = []
+    for v in videos:
+        pts = v.get("pub_ts", 0)
+        if pts and pts > 0:
+            if pts >= cutoff_ts:
+                result.append(v)
+            # else: skip — older than cutoff
+        else:
+            # Fall back to date string
+            date_str = v.get("date", "")
+            if date_str:
+                try:
+                    import calendar as _cal
+                    dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+                    if _cal.timegm(dt.timetuple()) >= cutoff_ts:
+                        result.append(v)
+                    # else: skip — older than cutoff
+                except Exception:
+                    result.append(v)   # keep if unparseable
+            else:
+                result.append(v)       # keep if no date info
+    removed = len(videos) - len(result)
+    if removed:
+        log.info("filter_recent_videos: removed %d videos older than %d days", removed, days)
+    return result
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -209,6 +239,7 @@ def run_fetch(channel_id, data_file, gemini_key="", gemini_model="gemini-2.5-fla
             results.append(cached)
 
     all_videos = list({v["id"]: v for v in existing.values()}.values())
+    all_videos = filter_recent_videos(all_videos, days=5)
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date",""), reverse=True)
     all_videos = all_videos[:30]
 

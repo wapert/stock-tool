@@ -1,6 +1,6 @@
 """Investor's Business Daily (IBD) — video show fetcher."""
 import os, re, logging
-from show_fetcher import run_fetch, extract_stocks, fetch_rss, scrape_video_page
+from show_fetcher import filter_recent_videos, run_fetch, extract_stocks, fetch_rss, scrape_video_page
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json, datetime
 
@@ -94,6 +94,7 @@ def run_daily_fetch():
         results.append(scraped.get(vid_id) or existing.get(vid_id) or v)
 
     all_videos = list({v["id"]: v for v in existing.values()}.values())
+    all_videos = filter_recent_videos(all_videos, days=5)
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date", ""), reverse=True)
     all_videos = all_videos[:30]
 

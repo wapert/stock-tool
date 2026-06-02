@@ -6,6 +6,7 @@ Strategy (bot-detection-free):
   3. Extract TW/US stock codes from title + description + hashtags
 """
 import os, re, json, datetime, logging, urllib.request, html
+from show_fetcher import filter_recent_videos
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger(__name__)
@@ -279,6 +280,7 @@ def run_daily_fetch():
 
     # Merge with previous and keep history
     all_videos = list({v["id"]: v for v in list(existing.values())}.values())
+    all_videos = filter_recent_videos(all_videos, days=5)
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date",""), reverse=True)
     all_videos = all_videos[:30]
 
