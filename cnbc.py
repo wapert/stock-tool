@@ -192,7 +192,7 @@ def run_daily_fetch():
         entry["category_icon"] = v.get("category_icon", "")
         results.append(entry)
 
-    all_videos = list({v["id"]: v for v in results}.values())
+    all_videos = list({v["id"]: v for v in existing.values()}.values())
     all_videos = filter_recent_videos(all_videos, days=5)
     all_videos.sort(key=lambda x: x.get("pub_ts", 0) or x.get("date", ""), reverse=True)
     all_videos = all_videos[:30]
