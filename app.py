@@ -127,6 +127,31 @@ app = Flask(__name__,
             static_folder=os.path.join(_here, "static"),
             template_folder=os.path.join(_here, "templates"))
 
+# ── Custom JSON provider: convert NaN/Infinity → null ────────────────────────
+# Python's default json serialiser writes NaN/Inf as bare tokens which are
+# invalid JSON. The browser throws "Unexpected token 'N'" when it sees them.
+import math as _math
+from flask.json.provider import DefaultJSONProvider
+
+class _NaNSafeJSONProvider(DefaultJSONProvider):
+    @staticmethod
+    def _sanitize(obj):
+        if isinstance(obj, float):
+            if _math.isnan(obj) or _math.isinf(obj):
+                return None
+            return obj
+        if isinstance(obj, dict):
+            return {k: _NaNSafeJSONProvider._sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_NaNSafeJSONProvider._sanitize(v) for v in obj]
+        return obj
+
+    def dumps(self, obj, **kwargs):
+        return super().dumps(self._sanitize(obj), **kwargs)
+
+app.json_provider_class = _NaNSafeJSONProvider
+app.json = _NaNSafeJSONProvider(app)
+
 # DATA_DIR can be overridden via env var to point at a persistent volume on cloud
 _data_dir = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 PROFILES_FILE = os.path.join(_data_dir, "profiles.json")
